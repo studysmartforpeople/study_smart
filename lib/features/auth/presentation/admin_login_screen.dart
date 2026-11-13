@@ -84,7 +84,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Use the admin Google account assigned to the platform.',
+                    'Use the admin email and password assigned to the platform.',
                     style: TextStyle(color: Colors.black54),
                   ),
                   const SizedBox(height: 24),
