@@ -15,12 +15,53 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
+    function studentCodeCounterPath() {
+      return /databases/$(database)/documents/systemCounters/studentCode;
+    }
+
+    function studentProfilePath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    function formattedStudentCode(number) {
+      return 'SDS2026-'
+        + (number < 10
+          ? '000' + string(number)
+          : number < 100
+            ? '00' + string(number)
+            : number < 1000
+              ? '0' + string(number)
+              : string(number));
+    }
+
+    function validStudentCodeReservation() {
+      return existsAfter(studentCodeCounterPath())
+        && getAfter(studentCodeCounterPath()).data.lastNumber is int
+        && getAfter(studentCodeCounterPath()).data.lastNumber
+          == (exists(studentCodeCounterPath())
+            ? get(studentCodeCounterPath()).data.lastNumber + 1
+            : 1)
+        && request.resource.data.studentCode
+          == formattedStudentCode(
+            getAfter(studentCodeCounterPath()).data.lastNumber
+          );
+    }
+
+    function counterMatchesNewStudent(uid, number) {
+      return !exists(studentProfilePath(uid))
+        && existsAfter(studentProfilePath(uid))
+        && getAfter(studentProfilePath(uid)).data.uid == uid
+        && getAfter(studentProfilePath(uid)).data.role == 'student'
+        && getAfter(studentProfilePath(uid)).data.studentCode
+          == formattedStudentCode(number);
+    }
+
     function validStudentProfile(uid) {
       return request.resource.data.keys().hasAll([
           'uid',
           'fullName',
           'email',
-          'age',
+          'dateOfBirth',
           'studentCode',
           'role',
           'preferredLanguage',
@@ -30,7 +71,7 @@ service cloud.firestore {
           'uid',
           'fullName',
           'email',
-          'age',
+          'dateOfBirth',
           'studentCode',
           'role',
           'preferredLanguage',
@@ -40,8 +81,10 @@ service cloud.firestore {
         && request.resource.data.email == request.auth.token.email
         && request.resource.data.fullName is string
         && request.resource.data.fullName.size() > 0
-        && request.resource.data.age is int
-        && request.resource.data.age > 0
+        && request.resource.data.dateOfBirth is string
+        && request.resource.data.dateOfBirth.matches(
+          '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+        )
         && request.resource.data.studentCode is string
         && request.resource.data.studentCode.size() > 0
         && request.resource.data.role == 'student'
@@ -129,19 +172,27 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      allow create: if isOwner(uid) && validStudentProfile(uid);
+      allow create: if isOwner(uid)
+        && validStudentProfile(uid)
+        && validStudentCodeReservation();
       allow get: if isOwner(uid) || isAdmin();
       allow list: if isAdmin();
       allow update: if isOwner(uid)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'fullName',
-          'age',
-          'studentCode',
+          'dateOfBirth',
           'preferredLanguage'
         ])
         && request.resource.data.uid == uid
         && request.resource.data.email == resource.data.email
-        && request.resource.data.role == resource.data.role;
+        && request.resource.data.role == resource.data.role
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny([
+              'dateOfBirth'
+            ])
+          || (request.resource.data.dateOfBirth is string
+            && request.resource.data.dateOfBirth.matches(
+              '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+            )));
       allow delete: if false;
 
       match /learningProgress/{progressId} {
@@ -184,6 +235,28 @@ service cloud.firestore {
           );
         allow delete: if isOwner(uid) && photoId == 'current';
       }
+    }
+
+    match /systemCounters/{counterId} {
+      allow get: if signedIn() && counterId == 'studentCode';
+      allow list: if false;
+      allow create: if signedIn()
+        && counterId == 'studentCode'
+        && request.resource.data.keys().hasOnly(['lastNumber'])
+        && request.resource.data.lastNumber == 1
+        && counterMatchesNewStudent(request.auth.uid, 1);
+      allow update: if signedIn()
+        && counterId == 'studentCode'
+        && resource.data.keys().hasOnly(['lastNumber'])
+        && resource.data.lastNumber is int
+        && request.resource.data.keys().hasOnly(['lastNumber'])
+        && request.resource.data.lastNumber is int
+        && request.resource.data.lastNumber == resource.data.lastNumber + 1
+        && counterMatchesNewStudent(
+          request.auth.uid,
+          request.resource.data.lastNumber
+        );
+      allow delete: if false;
     }
   }
 }

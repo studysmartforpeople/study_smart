@@ -3,12 +3,19 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/utils/auth_validators.dart';
+import '../../../core/utils/date_of_birth_format.dart';
 import '../../../core/utils/firebase_error_message.dart';
+import '../data/student_registration_repository.dart';
 import '../../student/presentation/student_dashboard_screen.dart';
 import 'student_login_screen.dart';
 
 class StudentRegisterScreen extends StatefulWidget {
-  const StudentRegisterScreen({super.key});
+  final StudentRegistrationRepository repository;
+
+  const StudentRegisterScreen({
+    super.key,
+    this.repository = const StudentRegistrationRepository(),
+  });
 
   @override
   State<StudentRegisterScreen> createState() => _StudentRegisterScreenState();
@@ -18,11 +25,38 @@ class _StudentRegisterScreenState extends State<StudentRegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
-  final _ageController = TextEditingController();
-  final _studentCodeController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  DateTime? _dateOfBirth;
   bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDateOfBirth(FormFieldState<DateTime> field) async {
+    final today = DateTime.now();
+    final selectedDate = await showDatePicker(
+      context: context,
+      initialDate: _dateOfBirth ?? DateTime(today.year - 18, 1, 1),
+      firstDate: DateTime(1900),
+      lastDate: DateTime(today.year, today.month, today.day),
+    );
+    if (selectedDate == null || !mounted) return;
+
+    final dateOnly = DateTime(
+      selectedDate.year,
+      selectedDate.month,
+      selectedDate.day,
+    );
+    setState(() => _dateOfBirth = dateOnly);
+    field.didChange(dateOnly);
+  }
 
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
@@ -45,16 +79,14 @@ class _StudentRegisterScreenState extends State<StudentRegisterScreen> {
         if (existingProfile.exists) {
           throw FirebaseAuthException(
             code: 'email-already-in-use',
-            message: 'A profile already exists for this account. Please sign in.',
+            message:
+                'A profile already exists for this account. Please sign in.',
           );
         }
         user = currentUser;
       } else {
-        final credential =
-            await FirebaseAuth.instance.createUserWithEmailAndPassword(
-          email: email,
-          password: password,
-        );
+        final credential = await FirebaseAuth.instance
+            .createUserWithEmailAndPassword(email: email, password: password);
         user = credential.user;
       }
 
@@ -63,24 +95,25 @@ class _StudentRegisterScreenState extends State<StudentRegisterScreen> {
       }
       authAccountAvailable = true;
 
-      final age = int.tryParse(_ageController.text.trim()) ?? 0;
       final fullName = _nameController.text.trim();
-      final studentCode = _studentCodeController.text.trim();
-
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-        'uid': user.uid,
-        'fullName': fullName,
-        'email': user.email ?? email,
-        'age': age,
-        'studentCode': studentCode,
-        'role': 'student',
-        'preferredLanguage': 'English',
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+      final dateOfBirth = _dateOfBirth;
+      if (dateOfBirth == null) {
+        throw StateError('Select a date of birth before registering.');
+      }
+      final studentCode = await widget.repository.createStudentProfile(
+        uid: user.uid,
+        fullName: fullName,
+        email: user.email ?? email,
+        dateOfBirth: dateOfBirth,
+      );
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Registration successful. Welcome to Study Smart!')),
+        SnackBar(
+          content: Text(
+            'Registration successful. Your Student Code is $studentCode.',
+          ),
+        ),
       );
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => StudentDashboardScreen(user: user!)),
@@ -156,7 +189,8 @@ class _StudentRegisterScreenState extends State<StudentRegisterScreen> {
                       prefixIcon: Icon(Icons.person_outline),
                       border: OutlineInputBorder(),
                     ),
-                    validator: (value) => (value == null || value.trim().isEmpty)
+                    validator: (value) =>
+                        (value == null || value.trim().isEmpty)
                         ? 'Full name is required.'
                         : null,
                   ),
@@ -170,7 +204,9 @@ class _StudentRegisterScreenState extends State<StudentRegisterScreen> {
                       border: OutlineInputBorder(),
                     ),
                     validator: (value) {
-                      if (value == null || value.trim().isEmpty) return 'Email is required.';
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Email is required.';
+                      }
                       final email = value.trim();
                       if (!isValidGmail(email)) {
                         return 'Enter a valid Gmail address ending in @gmail.com.';
@@ -179,32 +215,27 @@ class _StudentRegisterScreenState extends State<StudentRegisterScreen> {
                     },
                   ),
                   const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _ageController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Age',
-                      prefixIcon: Icon(Icons.cake_rounded),
-                      border: OutlineInputBorder(),
+                  FormField<DateTime>(
+                    initialValue: _dateOfBirth,
+                    validator: (value) =>
+                        value == null ? 'Date of birth is required.' : null,
+                    builder: (field) => InkWell(
+                      onTap: () => _pickDateOfBirth(field),
+                      borderRadius: BorderRadius.circular(4),
+                      child: InputDecorator(
+                        decoration: InputDecoration(
+                          labelText: 'Date of Birth',
+                          prefixIcon: const Icon(Icons.cake_rounded),
+                          border: const OutlineInputBorder(),
+                          errorText: field.errorText,
+                        ),
+                        child: Text(
+                          _dateOfBirth == null
+                              ? 'Select date of birth'
+                              : formatDateOfBirth(_dateOfBirth!),
+                        ),
+                      ),
                     ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) return 'Age is required.';
-                      final age = int.tryParse(value.trim());
-                      if (age == null || age <= 0) return 'Age must be a valid positive number.';
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _studentCodeController,
-                    decoration: const InputDecoration(
-                      labelText: 'Student Code',
-                      prefixIcon: Icon(Icons.badge_outlined),
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) => (value == null || value.trim().isEmpty)
-                        ? 'Student code is required.'
-                        : null,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
@@ -216,8 +247,12 @@ class _StudentRegisterScreenState extends State<StudentRegisterScreen> {
                       border: OutlineInputBorder(),
                     ),
                     validator: (value) {
-                      if (value == null || value.trim().isEmpty) return 'Password is required.';
-                      if (value.length < 8) return 'Password must contain at least 8 characters.';
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Password is required.';
+                      }
+                      if (value.length < 8) {
+                        return 'Password must contain at least 8 characters.';
+                      }
                       return null;
                     },
                   ),
@@ -231,8 +266,12 @@ class _StudentRegisterScreenState extends State<StudentRegisterScreen> {
                       border: OutlineInputBorder(),
                     ),
                     validator: (value) {
-                      if (value == null || value.trim().isEmpty) return 'Please confirm your password.';
-                      if (value != _passwordController.text) return 'Passwords do not match.';
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Please confirm your password.';
+                      }
+                      if (value != _passwordController.text) {
+                        return 'Passwords do not match.';
+                      }
                       return null;
                     },
                   ),

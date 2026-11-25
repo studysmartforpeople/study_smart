@@ -5,9 +5,21 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:study_smart_dev/app.dart';
 import 'package:study_smart_dev/core/services/app_theme_controller.dart';
+import 'package:study_smart_dev/core/utils/date_of_birth_format.dart';
+import 'package:study_smart_dev/features/auth/data/student_registration_repository.dart';
+import 'package:study_smart_dev/features/admin/data/admin_student_repository.dart';
 import 'package:study_smart_dev/features/student/data/learning_curriculum.dart';
 import 'package:study_smart_dev/features/student/data/learning_progress_repository.dart';
 import 'package:study_smart_dev/shared/widgets/stat_card.dart';
+
+class _MemoryAdminStudentRepository extends AdminStudentRepository {
+  final List<AdminStudentRecord> students;
+
+  _MemoryAdminStudentRepository(this.students);
+
+  @override
+  Future<List<AdminStudentRecord>> fetchStudents() async => students;
+}
 
 class _MemoryLearningProgressRepository extends LearningProgressRepository {
   LearningProgress _progress = LearningProgress.initial();
@@ -64,6 +76,23 @@ void main() {
     expect(message, contains('Missing or insufficient permissions.'));
   });
 
+  test('Student codes use the padded sequential format', () {
+    expect(formatStudentCode(1), 'SDS2026-0001');
+    expect(formatStudentCode(9), 'SDS2026-0009');
+    expect(formatStudentCode(10), 'SDS2026-0010');
+    expect(formatStudentCode(1000), 'SDS2026-1000');
+  });
+
+  test('Birth dates round-trip as date-only values', () {
+    final date = DateTime(2010, 4, 7);
+    final storedDate = serializeDateOfBirth(date);
+
+    expect(storedDate, '2010-04-07');
+    expect(parseDateOfBirth(storedDate), date);
+    expect(formatDateOfBirth(date), '07/04/2010');
+    expect(parseDateOfBirth('2010-02-30'), isNull);
+  });
+
   testWidgets('Study Smart landing screen loads', (WidgetTester tester) async {
     await tester.pumpWidget(const MaterialApp(home: LandingScreen()));
 
@@ -85,6 +114,22 @@ void main() {
       find.byType(TextFormField).first,
     );
     expect(emailField.controller?.text, 'student@gmail.com');
+  });
+
+  testWidgets('Student registration asks for birth date, not age or code', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: StudentRegisterScreen()));
+
+    expect(find.text('Date of Birth'), findsOneWidget);
+    expect(find.text('Select date of birth'), findsOneWidget);
+    expect(find.text('Age'), findsNothing);
+    expect(find.text('Student Code'), findsNothing);
+
+    await tester.tap(find.text('Select date of birth'));
+    await tester.pumpAndSettle();
+    expect(find.byType(DatePickerDialog), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('Student login can show and hide the password', (
@@ -118,6 +163,11 @@ void main() {
   ) async {
     await tester.pumpWidget(const MaterialApp(home: AdminLoginScreen()));
 
+    final emailField = tester.widget<TextFormField>(
+      find.byType(TextFormField).first,
+    );
+    expect(emailField.controller?.text, 'admin@studysmart.com');
+
     var passwordField = tester.widget<EditableText>(
       find.descendant(
         of: find.byType(TextFormField).last,
@@ -137,6 +187,101 @@ void main() {
     );
     expect(passwordField.obscureText, isFalse);
     expect(find.byTooltip('Hide password'), findsOneWidget);
+  });
+
+  testWidgets('Admin dashboard shows real student progress and details', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final themeController = AppThemeController();
+    addTearDown(themeController.dispose);
+
+    final firstQuiz = LearningCurriculum.quizzes.first;
+    final progress = LearningProgress.initial()
+        .withQuizResult(quiz: firstQuiz, score: 80)
+        .progress;
+    final repository = _MemoryAdminStudentRepository([
+      AdminStudentRecord(
+        uid: 'student-1',
+        fullName: 'Sok Dara',
+        email: 'sok@example.com',
+        studentCode: 'ST-001',
+        progress: progress,
+      ),
+      AdminStudentRecord(
+        uid: 'student-2',
+        fullName: 'Maly',
+        email: 'maly@example.com',
+        studentCode: 'ST-002',
+        progress: LearningProgress.initial(),
+      ),
+    ]);
+
+    await tester.pumpWidget(
+      AppThemeScope(
+        controller: themeController,
+        child: AnimatedBuilder(
+          animation: themeController,
+          builder: (context, _) => MaterialApp(
+            theme: ThemeData.light(),
+            darkTheme: ThemeData.dark(),
+            themeMode: themeController.themeMode,
+            home: AdminDashboardScreen(
+              user: const _TestUser(),
+              repository: repository,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Switch to dark mode'), findsOneWidget);
+    await tester.tap(find.byTooltip('Switch to dark mode'));
+    await tester.pumpAndSettle();
+    expect(themeController.isDarkMode, isTrue);
+    expect(
+      Theme.of(tester.element(find.text('Dashboard overview'))).brightness,
+      Brightness.dark,
+    );
+    expect(find.byTooltip('Switch to light mode'), findsOneWidget);
+
+    expect(find.text('Students'), findsOneWidget);
+    expect(find.text('2'), findsOneWidget);
+    expect(find.text('Started learning'), findsOneWidget);
+    expect(find.text('Quiz passes'), findsOneWidget);
+    final startedLearningCard = find.ancestor(
+      of: find.text('Started learning'),
+      matching: find.byType(Card),
+    );
+    final quizPassesCard = find.ancestor(
+      of: find.text('Quiz passes'),
+      matching: find.byType(Card),
+    );
+    expect(
+      find.descendant(of: startedLearningCard, matching: find.text('1')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: quizPassesCard, matching: find.text('1')),
+      findsOneWidget,
+    );
+    expect(find.text('Average progress'), findsOneWidget);
+    expect(find.text('10%'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Sok Dara'),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Sok Dara'), findsOneWidget);
+
+    await tester.tap(find.text('Sok Dara'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Progress: 1/5 quizzes passed'), findsOneWidget);
+    expect(find.text('Best score: 80% · Passed'), findsOneWidget);
+    expect(find.textContaining('English Alphabet: A, B, C'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('Dark mode setting changes theme and persists', (

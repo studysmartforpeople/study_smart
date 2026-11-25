@@ -65,7 +65,7 @@ test/
 - `lib/features/auth/` មាន landing, student/admin login, registration និង auth gate។
 - `lib/features/student/` មាន student dashboard, Profile ដែលបញ្ចូល Progress/quiz credits និងអាចជ្រើស/ដករូប Profile ដែលរក្សាទុកក្នុង Firestore ព្រមទាំង Home, Subjects, Lessons, Quizzes និង Settings ក្នុង hamburger menu។
 - `lib/features/student/data/profile_photo_repository.dart` រក្សាទុក និងអានរូប Profile ដែលបង្រួមនៅ `users/{uid}/profilePhotos/current`។
-- `lib/features/admin/` មាន admin dashboard និងការអាន student records។
+- `lib/features/admin/` មាន admin dashboard ដែលបង្ហាញស្ថិតិ និង progress របស់សិស្ស អាចស្វែងរកសិស្ស និងមើល quiz scores/មេរៀនដែលបានដោះសោ។ Dashboard ក៏មាន Dark mode toggle ដែលប្រើការកំណត់ theme រួមរបស់ app។
 - `lib/shared/widgets/` មាន widget ដែលប្រើរួម ដូចជា `StatCard`។
 - `firestore.rules` កំណត់សិទ្ធិអាន/សរសេរ Firestore។ `firebase.json` ភ្ជាប់ Firebase CLI ទៅ rules file នេះ។
 
@@ -81,7 +81,7 @@ test/
 
 1. បង្កើត ឬជ្រើស Firebase project ហើយភ្ជាប់ Flutter platforms ជាមួយ Firebase។
 2. នៅ Firebase Authentication បើក **Email/Password** sign-in provider។
-3. បង្កើត admin account នៅ **Authentication → Users** ដោយប្រើ `admin@gmail.com` (អ៊ីមែលនេះត្រូវបានបំពេញជាមុននៅទំព័រ Admin Login)។ កំណត់ ឬប្តូរ password នៅ Firebase Console; កុំដាក់ password ក្នុង source code ឬ README។
+3. បង្កើត admin account នៅ **Authentication → Users**។ អ៊ីមែល `admin@studysmart.com` ត្រូវបានបំពេញជាមុននៅទំព័រ Admin Login ប៉ុន្តែអាចកែបាន។ កំណត់ ឬប្តូរ password នៅ Firebase Console; កុំដាក់ password ក្នុង source code ឬ README។ កម្មវិធីមិនមាន admin self-registration ទេ ដើម្បីកុំឲ្យអ្នកប្រើអាចផ្ដល់សិទ្ធិ admin ដល់ខ្លួនឯង។
 4. ចម្លង UID របស់ admin account។
 5. នៅ Cloud Firestore បង្កើត collection `users` និង document ដែល ID ស្មើ UID នោះ។ បន្ថែម fields យ៉ាងហោចណាស់៖
 
@@ -91,14 +91,14 @@ test/
    | `email` | string | Email របស់ admin |
    | `role` | string | `admin` |
 
-6. ពិនិត្យ Firestore Rules នៅ Firebase Console ថាត្រូវនឹង `firestore.rules` របស់ project។ Deploy rules បន្ទាប់ពី login Firebase CLI និងជ្រើស project ត្រឹមត្រូវ៖
+6. ពិនិត្យ Firestore Rules នៅ Firebase Console ថាត្រូវនឹង `firestore.rules` របស់ project។ Rules ទាំងនេះអនុញ្ញាតឲ្យ admin អាន student profiles និង learning progress ដើម្បីបង្ហាញនៅ dashboard។ Deploy rules បន្ទាប់ពី login Firebase CLI និងជ្រើស project ត្រឹមត្រូវ៖
 
    ```bash
    firebase deploy --only firestore:rules
    ```
 7. រូប Profile ត្រូវបានបង្រួម ហើយរក្សាទុកនៅ `users/{uid}/profilePhotos/current` ក្នុង Firestore។ Rules កំណត់ឲ្យ user អាន និងកែតែរូបរបស់ខ្លួន ហើយកំណត់ទំហំរូបអតិបរមា 250 KB។
 
-Student registration បង្កើត `users/{uid}` ដោយ `role: student` និង profile fields ដូចជា `fullName`, `age`, `studentCode`, `preferredLanguage` និង `createdAt`។
+Student registration រក្សាថ្ងៃខែឆ្នាំកំណើតជា `dateOfBirth` ទម្រង់ `YYYY-MM-DD` ហើយបង្កើត Student Code ជាលំដាប់ `SDS2026-0001`, `SDS2026-0002`, ... ដោយ Firestore transaction។ Counter នៅ `systemCounters/studentCode` និង student profile ត្រូវបានសរសេរជា transaction តែមួយ ដើម្បីកុំឲ្យលេខស្ទួនពេលមានការចុះឈ្មោះដំណាលគ្នា។ ត្រូវ deploy `firestore.rules` មុនប្រើ registration ជាមួយ counter ថ្មីនេះ។ ប្រសិនបើមាន Student Code ចាស់ដែលប្រើ prefix `SDS2026-` សូមកំណត់ `systemCounters/studentCode.lastNumber` ទៅលេខ suffix ធំបំផុតដែលមានស្រាប់ មុនចុះឈ្មោះសិស្សថ្មី; បើគ្មានទេ ការចុះឈ្មោះដំបូងនឹងបង្កើតលេខ `0001`។
 
 ### Quiz credits និងការដោះសោមេរៀន
 
@@ -110,7 +110,7 @@ Student registration បង្កើត `users/{uid}` ដោយ `role: student` 
 ### សុវត្ថិភាព
 
 - Password ត្រូវគ្រប់គ្រងដោយ Firebase Authentication; កុំរក្សាទុក password ក្នុង Firestore, source code ឬ repository។
-- Firestore Rules អនុញ្ញាតឲ្យ user បង្កើតតែ student profile និងមិនអនុញ្ញាតឲ្យ user កែ `role` របស់ខ្លួន។
+- Firestore Rules អនុញ្ញាតឲ្យ user បង្កើតតែ student profile និងមិនអនុញ្ញាតឲ្យ user កែ `role` ឬ Student Code របស់ខ្លួន។ Counter Student Code អាចកើនបានតែមួយលេខ រួមជាមួយការបង្កើត profile ក្នុង transaction តែមួយ។
 - រូប Profile រក្សាទុកក្នុង Firestore ជា Base64 ដែលបានកំណត់ទំហំអតិបរមា 250 KB; វាប្រើ quota អាន/សរសេរ និងទំហំផ្ទុករបស់ Firestore។
 - Firestore Rules អនុញ្ញាតឲ្យ user លុបតែឯកសាររូប Profile របស់ខ្លួន; ការលុបមិនលុប profile ឬទិន្នន័យ quiz ទេ។
 - Admin profile គួរបង្កើតដោយផ្ទាល់តាម Firebase Console ឬ trusted server/Admin SDK; កុំបន្ថែមមុខងារ client ដែលអាចផ្ដល់ `role: admin`។

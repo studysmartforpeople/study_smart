@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../../core/utils/date_of_birth_format.dart';
 import '../../../../core/utils/firebase_error_message.dart';
 import '../../data/profile_photo_repository.dart';
 import 'progress_page.dart';
@@ -169,7 +170,16 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
         final fullName = storedName.isEmpty ? 'Student' : storedName;
         final email = (data['email'] ?? widget.user.email ?? 'No email')
             .toString();
-        final age = (data['age'] ?? 'N/A').toString();
+        final storedDateOfBirth = data['dateOfBirth'];
+        final parsedDateOfBirth = storedDateOfBirth is String
+            ? parseDateOfBirth(storedDateOfBirth)
+            : null;
+        final legacyAge = data['age'];
+        final dateOfBirth = parsedDateOfBirth == null
+            ? legacyAge == null
+                  ? 'Not provided'
+                  : 'Unavailable for previous account (age: $legacyAge)'
+            : formatDateOfBirth(parsedDateOfBirth);
         final studentCode = (data['studentCode'] ?? 'N/A').toString();
         final preferredLanguage = (data['preferredLanguage'] ?? 'English')
             .toString();
@@ -266,7 +276,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
             ),
             const SizedBox(height: 20),
             _ProfileInfoTile(label: 'Email', value: email),
-            _ProfileInfoTile(label: 'Age', value: age),
+            _ProfileInfoTile(label: 'Date of Birth', value: dateOfBirth),
             _ProfileInfoTile(label: 'Student Code', value: studentCode),
             _ProfileInfoTile(
               label: 'Learning Language',

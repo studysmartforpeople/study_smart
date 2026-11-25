@@ -1,6 +1,14 @@
 import 'package:firebase_auth/firebase_auth.dart';
 
+import 'firebase_error_unwrap_stub.dart'
+    if (dart.library.js_interop) 'firebase_error_unwrap_web.dart' as interop;
+
 String firebaseErrorMessage(Object error, {required String action}) {
+  final unwrappedError = interop.unwrapFirebaseError(error);
+  if (!identical(unwrappedError, error)) {
+    return firebaseErrorMessage(unwrappedError, action: action);
+  }
+
   if (error is FirebaseAuthException) {
     final description = switch (error.code) {
       'invalid-email' => 'The email address is invalid.',
