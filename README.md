@@ -7,7 +7,9 @@ Study Smart គឺជា Flutter app សម្រាប់ការសិក្�
 - Flutter និង Dart (`sdk: ^3.13.7`)
 - Firebase Authentication (`firebase_auth`)
 - Cloud Firestore (`cloud_firestore`)
+- Firestore រក្សាទុករូប Profile ដែលបានបង្រួម (កំណត់ត្រឹម 250 KB)
 - Firebase Core (`firebase_core`)
+- `image_picker` សម្រាប់ជ្រើសរូបភាព
 
 ## Project structure
 
@@ -61,7 +63,8 @@ test/
 - `lib/core/services/user_role_service.dart` អាន និងផ្ទៀងផ្ទាត់ role របស់ user ពី `users/{uid}`។
 - `lib/core/utils/` មាន Gmail validation និងការបម្លែង Firebase errors ទៅជាសារបង្ហាញ។
 - `lib/features/auth/` មាន landing, student/admin login, registration និង auth gate។
-- `lib/features/student/` មាន student dashboard និងទំព័រ Home, Subjects, Lessons, Quizzes, Progress, Profile និង Settings។
+- `lib/features/student/` មាន student dashboard, Profile ដែលបញ្ចូល Progress/quiz credits និងអាចជ្រើស/ដករូប Profile ដែលរក្សាទុកក្នុង Firestore ព្រមទាំង Home, Subjects, Lessons, Quizzes និង Settings ក្នុង hamburger menu។
+- `lib/features/student/data/profile_photo_repository.dart` រក្សាទុក និងអានរូប Profile ដែលបង្រួមនៅ `users/{uid}/profilePhotos/current`។
 - `lib/features/admin/` មាន admin dashboard និងការអាន student records។
 - `lib/shared/widgets/` មាន widget ដែលប្រើរួម ដូចជា `StatCard`។
 - `firestore.rules` កំណត់សិទ្ធិអាន/សរសេរ Firestore។ `firebase.json` ភ្ជាប់ Firebase CLI ទៅ rules file នេះ។
@@ -78,7 +81,7 @@ test/
 
 1. បង្កើត ឬជ្រើស Firebase project ហើយភ្ជាប់ Flutter platforms ជាមួយ Firebase។
 2. នៅ Firebase Authentication បើក **Email/Password** sign-in provider។
-3. បង្កើត admin account នៅ **Authentication → Users**។ Demo email អាចប្រើ `admin@gmail.com`; កំណត់ password នៅ Firebase Console ហើយកុំដាក់ password ក្នុង source code ឬ README។
+3. បង្កើត admin account នៅ **Authentication → Users** ដោយប្រើ `admin@gmail.com` (អ៊ីមែលនេះត្រូវបានបំពេញជាមុននៅទំព័រ Admin Login)។ កំណត់ ឬប្តូរ password នៅ Firebase Console; កុំដាក់ password ក្នុង source code ឬ README។
 4. ចម្លង UID របស់ admin account។
 5. នៅ Cloud Firestore បង្កើត collection `users` និង document ដែល ID ស្មើ UID នោះ។ បន្ថែម fields យ៉ាងហោចណាស់៖
 
@@ -93,13 +96,23 @@ test/
    ```bash
    firebase deploy --only firestore:rules
    ```
+7. រូប Profile ត្រូវបានបង្រួម ហើយរក្សាទុកនៅ `users/{uid}/profilePhotos/current` ក្នុង Firestore។ Rules កំណត់ឲ្យ user អាន និងកែតែរូបរបស់ខ្លួន ហើយកំណត់ទំហំរូបអតិបរមា 250 KB។
 
 Student registration បង្កើត `users/{uid}` ដោយ `role: student` និង profile fields ដូចជា `fullName`, `age`, `studentCode`, `preferredLanguage` និង `createdAt`។
+
+### Quiz credits និងការដោះសោមេរៀន
+
+- Quiz នីមួយៗមាន 5 សំណួរ។ ពិន្ទុចាប់ពី 80% ឡើងទៅ ផ្ដល់ 1 credit និងដោះសោមេរៀនបន្ទាប់។
+- ពិន្ទុល្អបំផុត, quizzes ដែលជាប់ និង lessons ដែលបានដោះសោ ត្រូវរក្សាទុកនៅ `users/{uid}/learningProgress/current`។
+- ត្រូវ deploy `firestore.rules` បន្ទាប់ពីការកែប្រែ មុនពេលប្រើការរក្សាទុក quiz progress។
+- ការគណនាពិន្ទុបច្ចុប្បន្នធ្វើនៅ Flutter client ដូច្នេះវាសមស្របសម្រាប់ការរៀន/ការលេងប៉ុណ្ណោះ មិនមែនការប្រឡងផ្លូវការទេ។ ប្រសិនបើត្រូវការពិន្ទុដែលមិនអាចកែប្រែពី client បាន សូមផ្លាស់ប្ដូរការកំណត់ពិន្ទុទៅ trusted server ឬ Cloud Function។
 
 ### សុវត្ថិភាព
 
 - Password ត្រូវគ្រប់គ្រងដោយ Firebase Authentication; កុំរក្សាទុក password ក្នុង Firestore, source code ឬ repository។
-- Firestore Rules បច្ចុប្បន្នអនុញ្ញាតឲ្យ user បង្កើតតែ student profile និងមិនអនុញ្ញាតឲ្យ user កែ `role` របស់ខ្លួន។
+- Firestore Rules អនុញ្ញាតឲ្យ user បង្កើតតែ student profile និងមិនអនុញ្ញាតឲ្យ user កែ `role` របស់ខ្លួន។
+- រូប Profile រក្សាទុកក្នុង Firestore ជា Base64 ដែលបានកំណត់ទំហំអតិបរមា 250 KB; វាប្រើ quota អាន/សរសេរ និងទំហំផ្ទុករបស់ Firestore។
+- Firestore Rules អនុញ្ញាតឲ្យ user លុបតែឯកសាររូប Profile របស់ខ្លួន; ការលុបមិនលុប profile ឬទិន្នន័យ quiz ទេ។
 - Admin profile គួរបង្កើតដោយផ្ទាល់តាម Firebase Console ឬ trusted server/Admin SDK; កុំបន្ថែមមុខងារ client ដែលអាចផ្ដល់ `role: admin`។
 - Rules ក្នុង repository មានប្រសិទ្ធភាពលើ Firebase តែបន្ទាប់ពី deploy រួច។ កុំប្រើ permissive rules ដូចជា allow read/write to everyone។
 - Firebase client configuration មិនមែនជាកន្លែងរក្សា password ឬ service-account private key ទេ។ កុំដាក់ service-account key ក្នុង Flutter app។

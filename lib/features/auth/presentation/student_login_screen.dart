@@ -21,6 +21,7 @@ class _StudentLoginScreenState extends State<StudentLoginScreen> {
   late final _emailController = TextEditingController(text: widget.initialEmail);
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _showPassword = false;
 
   @override
   void dispose() {
@@ -96,9 +97,11 @@ class _StudentLoginScreenState extends State<StudentLoginScreen> {
                     style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
+                  Text(
                     'Continue your learning journey with Study Smart.',
-                    style: TextStyle(color: Colors.black54),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   const SizedBox(height: 24),
                   TextFormField(
@@ -120,11 +123,24 @@ class _StudentLoginScreenState extends State<StudentLoginScreen> {
                   const SizedBox(height: 18),
                   TextFormField(
                     controller: _passwordController,
-                    obscureText: true,
-                    decoration: const InputDecoration(
+                    obscureText: !_showPassword,
+                    decoration: InputDecoration(
                       labelText: 'Password',
                       prefixIcon: Icon(Icons.lock_outline_rounded),
                       border: OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        onPressed: () => setState(() {
+                          _showPassword = !_showPassword;
+                        }),
+                        tooltip: _showPassword
+                            ? 'Hide password'
+                            : 'Show password',
+                        icon: Icon(
+                          _showPassword
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                        ),
+                      ),
                     ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) return 'Please enter your password.';

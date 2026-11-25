@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'core/services/app_theme_controller.dart';
 import 'features/auth/presentation/auth_gate.dart';
 
 export 'core/services/user_role_service.dart';
@@ -20,20 +21,51 @@ export 'features/student/presentation/pages/student_profile_page.dart';
 export 'features/student/presentation/pages/subject_list_page.dart';
 export 'features/student/presentation/student_dashboard_screen.dart';
 
-class StudySmartApp extends StatelessWidget {
-  const StudySmartApp({super.key});
+class StudySmartApp extends StatefulWidget {
+  final bool initialDarkMode;
+
+  const StudySmartApp({super.key, this.initialDarkMode = false});
+
+  @override
+  State<StudySmartApp> createState() => _StudySmartAppState();
+}
+
+class _StudySmartAppState extends State<StudySmartApp> {
+  late final AppThemeController _themeController = AppThemeController(
+    initialDarkMode: widget.initialDarkMode,
+  );
+
+  @override
+  void dispose() {
+    _themeController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Study Smart',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
-        scaffoldBackgroundColor: const Color(0xFFF4F7FF),
+    return AppThemeScope(
+      controller: _themeController,
+      child: AnimatedBuilder(
+        animation: _themeController,
+        builder: (context, _) => MaterialApp(
+          title: 'Study Smart',
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData(
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
+            scaffoldBackgroundColor: const Color(0xFFF4F7FF),
+          ),
+          darkTheme: ThemeData(
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: Colors.indigo,
+              brightness: Brightness.dark,
+            ),
+          ),
+          themeMode: _themeController.themeMode,
+          home: const AuthGate(),
+        ),
       ),
-      home: const AuthGate(),
     );
   }
 }

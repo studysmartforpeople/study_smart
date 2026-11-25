@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/services/app_theme_controller.dart';
+
 class SettingsPage extends StatelessWidget {
   final VoidCallback onLogout;
 
@@ -7,6 +9,8 @@ class SettingsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeController = AppThemeScope.of(context);
+
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
@@ -21,8 +25,15 @@ class SettingsPage extends StatelessWidget {
         SwitchListTile(
           title: const Text('Dark mode'),
           subtitle: const Text('Focus better at night.'),
-          value: false,
-          onChanged: (_) {},
+          value: themeController.isDarkMode,
+          onChanged: (enabled) async {
+            final saved = await themeController.setDarkMode(enabled);
+            if (!saved && context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Could not save dark mode setting.')),
+              );
+            }
+          },
         ),
         ListTile(
           leading: const Icon(Icons.language_rounded),

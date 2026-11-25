@@ -1,18 +1,148 @@
+import 'dart:typed_data';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/utils/firebase_error_message.dart';
+import '../../data/profile_photo_repository.dart';
+import 'progress_page.dart';
 
-class StudentProfilePage extends StatelessWidget {
+class StudentProfilePage extends StatefulWidget {
   final User user;
 
   const StudentProfilePage({super.key, required this.user});
 
   @override
+  State<StudentProfilePage> createState() => _StudentProfilePageState();
+}
+
+class _StudentProfilePageState extends State<StudentProfilePage> {
+  late final Future<DocumentSnapshot<Map<String, dynamic>>> _profileFuture;
+  final ProfilePhotoRepository _photoRepository =
+      const ProfilePhotoRepository();
+  late final Stream<Uint8List?> _photoStream;
+  bool _isSavingPhoto = false;
+  bool _isRemovingPhoto = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _profileFuture = FirebaseFirestore.instance
+        .collection('users')
+        .doc(widget.user.uid)
+        .get();
+    _photoStream = _photoRepository.watch(widget.user.uid);
+  }
+
+  Future<void> _changeProfilePhoto() async {
+    try {
+      final image = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 70,
+      );
+      if (image == null || !mounted) return;
+
+      setState(() {
+        _isSavingPhoto = true;
+        _isRemovingPhoto = false;
+      });
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null || currentUser.uid != widget.user.uid) {
+        throw StateError(
+          'The signed-in account changed. Please sign in again.',
+        );
+      }
+
+      final bytes = await image.readAsBytes();
+      await _photoRepository.save(widget.user.uid, bytes);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Profile photo updated.')));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            firebaseErrorMessage(error, action: 'Updating profile photo'),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSavingPhoto = false;
+          _isRemovingPhoto = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _removeProfilePhoto() async {
+    final shouldRemove = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Remove profile photo?'),
+        content: const Text('Your profile will show your initial instead.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || shouldRemove != true) return;
+
+    try {
+      setState(() {
+        _isSavingPhoto = true;
+        _isRemovingPhoto = true;
+      });
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null || currentUser.uid != widget.user.uid) {
+        throw StateError(
+          'The signed-in account changed. Please sign in again.',
+        );
+      }
+
+      await _photoRepository.remove(widget.user.uid);
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Profile photo removed.')));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            firebaseErrorMessage(error, action: 'Removing profile photo'),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSavingPhoto = false;
+          _isRemovingPhoto = false;
+        });
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      future: FirebaseFirestore.instance.collection('users').doc(user.uid).get(),
+      future: _profileFuture,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Center(
@@ -33,35 +163,117 @@ class StudentProfilePage extends StatelessWidget {
         }
 
         final data = snapshot.data?.data() ?? {};
-        final fullName = data['fullName'] ?? user.displayName ?? 'Student';
-        final email = data['email'] ?? user.email ?? 'No email';
-        final age = data['age'] ?? 'N/A';
-        final studentCode = data['studentCode'] ?? 'N/A';
+        final storedName = (data['fullName'] ?? widget.user.displayName ?? '')
+            .toString()
+            .trim();
+        final fullName = storedName.isEmpty ? 'Student' : storedName;
+        final email = (data['email'] ?? widget.user.email ?? 'No email')
+            .toString();
+        final age = (data['age'] ?? 'N/A').toString();
+        final studentCode = (data['studentCode'] ?? 'N/A').toString();
+        final preferredLanguage = (data['preferredLanguage'] ?? 'English')
+            .toString();
 
         return ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            Center(
-              child: Column(
-                children: [
-                  CircleAvatar(
-                    radius: 46,
-                    backgroundColor: Colors.indigo,
-                    child: Text(
-                      fullName.substring(0, 1).toUpperCase(),
-                      style: const TextStyle(fontSize: 30, color: Colors.white),
+            StreamBuilder<Uint8List?>(
+              stream: _photoStream,
+              builder: (context, photoSnapshot) {
+                final photoBytes = photoSnapshot.data;
+                return Column(
+                  children: [
+                    CircleAvatar(
+                      radius: 52,
+                      backgroundColor: Colors.indigo,
+                      backgroundImage: photoBytes == null
+                          ? null
+                          : MemoryImage(photoBytes),
+                      child: photoSnapshot.hasError
+                          ? const Icon(
+                              Icons.broken_image_rounded,
+                              color: Colors.white,
+                              size: 32,
+                            )
+                          : _isSavingPhoto
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : photoBytes == null
+                          ? Text(
+                              fullName.substring(0, 1).toUpperCase(),
+                              style: const TextStyle(
+                                fontSize: 30,
+                                color: Colors.white,
+                              ),
+                            )
+                          : null,
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(fullName, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                ],
-              ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 8,
+                      children: [
+                        TextButton.icon(
+                          onPressed: _isSavingPhoto
+                              ? null
+                              : _changeProfilePhoto,
+                          icon: const Icon(Icons.camera_alt_rounded),
+                          label: Text(
+                            _isSavingPhoto
+                                ? _isRemovingPhoto
+                                      ? 'Removing photo…'
+                                      : 'Uploading photo…'
+                                : 'Change photo',
+                          ),
+                        ),
+                        if (photoBytes != null)
+                          TextButton.icon(
+                            onPressed: _isSavingPhoto
+                                ? null
+                                : _removeProfilePhoto,
+                            style: TextButton.styleFrom(
+                              foregroundColor: Theme.of(context)
+                                  .colorScheme
+                                  .error,
+                            ),
+                            icon: const Icon(Icons.delete_outline_rounded),
+                            label: const Text('Remove photo'),
+                          ),
+                      ],
+                    ),
+                    if (photoSnapshot.hasError)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          firebaseErrorMessage(
+                            photoSnapshot.error!,
+                            action: 'Loading profile photo',
+                          ),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 4),
+                    Text(
+                      fullName,
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 20),
             _ProfileInfoTile(label: 'Email', value: email),
-            _ProfileInfoTile(label: 'Age', value: age.toString()),
-            _ProfileInfoTile(label: 'Student Code', value: studentCode.toString()),
-            _ProfileInfoTile(label: 'Learning Language', value: data['preferredLanguage'] ?? 'English'),
+            _ProfileInfoTile(label: 'Age', value: age),
+            _ProfileInfoTile(label: 'Student Code', value: studentCode),
+            _ProfileInfoTile(
+              label: 'Learning Language',
+              value: preferredLanguage,
+            ),
+            const SizedBox(height: 12),
+            ProgressOverview(userId: widget.user.uid),
           ],
         );
       },

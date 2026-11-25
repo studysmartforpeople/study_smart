@@ -41,10 +41,13 @@ class LandingScreen extends StatelessWidget {
                         style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 12),
-                      const Text(
+                      Text(
                         'Learn anytime, improve your skills, and track your growth.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 16, color: Colors.black87),
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
                       const SizedBox(height: 28),
                       _ActionButton(

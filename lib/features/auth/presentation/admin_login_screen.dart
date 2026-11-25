@@ -14,9 +14,10 @@ class AdminLoginScreen extends StatefulWidget {
 
 class _AdminLoginScreenState extends State<AdminLoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
+  final _emailController = TextEditingController(text: 'admin@gmail.com');
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _showPassword = false;
 
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
@@ -83,9 +84,11 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                     style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
+                  Text(
                     'Use the admin email and password assigned to the platform.',
-                    style: TextStyle(color: Colors.black54),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   const SizedBox(height: 24),
                   TextFormField(
@@ -104,11 +107,24 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                   const SizedBox(height: 18),
                   TextFormField(
                     controller: _passwordController,
-                    obscureText: true,
-                    decoration: const InputDecoration(
+                    obscureText: !_showPassword,
+                    decoration: InputDecoration(
                       labelText: 'Password',
                       prefixIcon: Icon(Icons.lock_rounded),
                       border: OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        onPressed: () => setState(() {
+                          _showPassword = !_showPassword;
+                        }),
+                        tooltip: _showPassword
+                            ? 'Hide password'
+                            : 'Show password',
+                        icon: Icon(
+                          _showPassword
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                        ),
+                      ),
                     ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) return 'Password is required.';
