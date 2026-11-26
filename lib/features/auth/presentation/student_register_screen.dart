@@ -7,6 +7,7 @@ import '../../../core/utils/date_of_birth_format.dart';
 import '../../../core/utils/firebase_error_message.dart';
 import '../data/student_registration_repository.dart';
 import '../../student/presentation/student_dashboard_screen.dart';
+import 'auth_screen_frame.dart';
 import 'student_login_screen.dart';
 
 class StudentRegisterScreen extends StatefulWidget {
@@ -165,131 +166,131 @@ class _StudentRegisterScreenState extends State<StudentRegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Student Registration')),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 600),
-            child: Form(
-              key: _formKey,
-              child: ListView(
-                shrinkWrap: true,
-                children: [
-                  const Text(
-                    'Create your student account',
-                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+    return AuthScreenFrame(
+      appBarTitle: 'Student Registration',
+      maxWidth: 560,
+      title: 'Create your student account',
+      subtitle: 'A few details are all you need to get started.',
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextFormField(
+              controller: _nameController,
+              decoration: const InputDecoration(
+                labelText: 'Full Name',
+                prefixIcon: Icon(Icons.person_outline),
+              ),
+              validator: (value) => (value == null || value.trim().isEmpty)
+                  ? 'Full name is required.'
+                  : null,
+            ),
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(
+                labelText: 'Gmail',
+                prefixIcon: Icon(Icons.email_outlined),
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Email is required.';
+                }
+                final email = value.trim();
+                if (!isValidGmail(email)) {
+                  return 'Enter a valid Gmail address ending in @gmail.com.';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 14),
+            FormField<DateTime>(
+              initialValue: _dateOfBirth,
+              validator: (value) =>
+                  value == null ? 'Date of birth is required.' : null,
+              builder: (field) => InkWell(
+                onTap: () => _pickDateOfBirth(field),
+                borderRadius: BorderRadius.circular(16),
+                child: InputDecorator(
+                  decoration: InputDecoration(
+                    labelText: 'Date of Birth',
+                    prefixIcon: const Icon(Icons.cake_rounded),
+                    errorText: field.errorText,
                   ),
-                  const SizedBox(height: 24),
-                  TextFormField(
-                    controller: _nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Full Name',
-                      prefixIcon: Icon(Icons.person_outline),
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) =>
-                        (value == null || value.trim().isEmpty)
-                        ? 'Full name is required.'
-                        : null,
+                  child: Text(
+                    _dateOfBirth == null
+                        ? 'Select date of birth'
+                        : formatDateOfBirth(_dateOfBirth!),
                   ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      labelText: 'Gmail',
-                      prefixIcon: Icon(Icons.email_outlined),
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Email is required.';
-                      }
-                      final email = value.trim();
-                      if (!isValidGmail(email)) {
-                        return 'Enter a valid Gmail address ending in @gmail.com.';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  FormField<DateTime>(
-                    initialValue: _dateOfBirth,
-                    validator: (value) =>
-                        value == null ? 'Date of birth is required.' : null,
-                    builder: (field) => InkWell(
-                      onTap: () => _pickDateOfBirth(field),
-                      borderRadius: BorderRadius.circular(4),
-                      child: InputDecorator(
-                        decoration: InputDecoration(
-                          labelText: 'Date of Birth',
-                          prefixIcon: const Icon(Icons.cake_rounded),
-                          border: const OutlineInputBorder(),
-                          errorText: field.errorText,
-                        ),
-                        child: Text(
-                          _dateOfBirth == null
-                              ? 'Select date of birth'
-                              : formatDateOfBirth(_dateOfBirth!),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: _passwordController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'Password',
+                prefixIcon: Icon(Icons.lock_outline_rounded),
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Password is required.';
+                }
+                if (value.length < 8) {
+                  return 'Password must contain at least 8 characters.';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: _confirmPasswordController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'Confirm Password',
+                prefixIcon: Icon(Icons.lock_reset_rounded),
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Please confirm your password.';
+                }
+                if (value != _passwordController.text) {
+                  return 'Passwords do not match.';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 22),
+            _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : SizedBox(
+                    height: 56,
+                    child: FilledButton.icon(
+                      onPressed: _register,
+                      icon: const Icon(Icons.person_add_alt_1_rounded),
+                      label: const Text('Create account'),
+                      style: FilledButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _passwordController,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Password',
-                      prefixIcon: Icon(Icons.lock_outline_rounded),
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Password is required.';
-                      }
-                      if (value.length < 8) {
-                        return 'Password must contain at least 8 characters.';
-                      }
-                      return null;
-                    },
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => StudentLoginScreen(
+                    initialEmail: _emailController.text.trim(),
                   ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _confirmPasswordController,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Confirm Password',
-                      prefixIcon: Icon(Icons.lock_reset_rounded),
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Please confirm your password.';
-                      }
-                      if (value != _passwordController.text) {
-                        return 'Passwords do not match.';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 28),
-                  _isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : ElevatedButton.icon(
-                          onPressed: _register,
-                          icon: const Icon(Icons.person_add_alt_1_rounded),
-                          label: const Text('Register'),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                          ),
-                        ),
-                ],
+                ),
               ),
+              child: const Text('Already have an account? Sign in'),
             ),
-          ),
+          ],
         ),
       ),
     );

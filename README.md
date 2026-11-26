@@ -48,6 +48,7 @@ lib/
 │               └── subject_list_page.dart
 └── shared/
     └── widgets/
+        ├── select_subject_prompt.dart
         └── stat_card.dart
 
 firestore.rules
@@ -63,7 +64,9 @@ test/
 - `lib/core/services/user_role_service.dart` អាន និងផ្ទៀងផ្ទាត់ role របស់ user ពី `users/{uid}`។
 - `lib/core/utils/` មាន Gmail validation និងការបម្លែង Firebase errors ទៅជាសារបង្ហាញ។
 - `lib/features/auth/` មាន landing, student/admin login, registration និង auth gate។
-- `lib/features/student/` មាន student dashboard, Profile ដែលបញ្ចូល Progress/quiz credits និងអាចជ្រើស/ដករូប Profile ដែលរក្សាទុកក្នុង Firestore ព្រមទាំង Home, Subjects, Lessons, Quizzes និង Settings ក្នុង hamburger menu។
+- `lib/features/student/` មាន student dashboard, Profile/Progress, Subjects, Lessons និង Quizzes។ មាន 4 មុខវិជ្ជា មួយៗមាន 10 មេរៀន; មេរៀននីមួយៗមានតេស្ត 10 សំណួរ។ សិស្សអាចជ្រើសមុខវិជ្ជាច្រើន; ការជ្រើសត្រូវបានរក្សាទុកក្នុង `users/{uid}/learningProgress/current` ហើយ Lessons/Quizzes បង្ហាញតាមមុខវិជ្ជាដែលបានជ្រើស។ ឆ្លង quiz បាន 80% ដើម្បីដោះសោមេរៀនបន្ទាប់ក្នុងមុខវិជ្ជាដូចគ្នា។
+- `lib/features/student/data/learning_curriculum.dart` ជាប្រភពទិន្នន័យសម្រាប់មុខវិជ្ជា មេរៀន មាតិកា និងសំណួរ quiz។
+- `lib/features/student/data/learning_progress_repository.dart` រក្សាទុកមុខវិជ្ជាដែលបានជ្រើស ពិន្ទុ quiz និងមេរៀនដែលបានដោះសោនៅ Firestore។
 - `lib/features/student/data/profile_photo_repository.dart` រក្សាទុក និងអានរូប Profile ដែលបង្រួមនៅ `users/{uid}/profilePhotos/current`។
 - `lib/features/admin/` មាន admin dashboard ដែលបង្ហាញស្ថិតិ និង progress របស់សិស្ស អាចស្វែងរកសិស្ស និងមើល quiz scores/មេរៀនដែលបានដោះសោ។ Dashboard ក៏មាន Dark mode toggle ដែលប្រើការកំណត់ theme រួមរបស់ app។
 - `lib/shared/widgets/` មាន widget ដែលប្រើរួម ដូចជា `StatCard`។
@@ -102,8 +105,9 @@ Student registration រក្សាថ្ងៃខែឆ្នាំកំណ�
 
 ### Quiz credits និងការដោះសោមេរៀន
 
-- Quiz នីមួយៗមាន 5 សំណួរ។ ពិន្ទុចាប់ពី 80% ឡើងទៅ ផ្ដល់ 1 credit និងដោះសោមេរៀនបន្ទាប់។
-- ពិន្ទុល្អបំផុត, quizzes ដែលជាប់ និង lessons ដែលបានដោះសោ ត្រូវរក្សាទុកនៅ `users/{uid}/learningProgress/current`។
+- សិស្សអាចជ្រើសមុខវិជ្ជាច្រើននៅ Subjects។ ការជ្រើស និង progress រក្សាទុករួមគ្នានៅ `users/{uid}/learningProgress/current`; ជ្រើសមុខវិជ្ជាដោះសោមេរៀនដំបូងរបស់វា។
+- មុខវិជ្ជានីមួយៗមាន 10 មេរៀន និងតេស្ត 10 សំណួរដែលបង្កើតពីគោលគំនិតក្នុងមេរៀន។ សិស្សអាចជ្រើស English ឬ Khmer នៅ Settings > Preferred language; ជម្រើសនេះប្ដូរភាសាខ្លឹមសារមេរៀន និងសំណួរ/ចម្លើយ Quiz ហើយរក្សាទុកលើ student profile។ ពិន្ទុ 80% ឡើងទៅផ្ដល់ 1 credit និងដោះសោមេរៀនបន្ទាប់ក្នុងមុខវិជ្ជាដូចគ្នា។
+- ពិន្ទុល្អបំផុត, quizzes ដែលជាប់, មុខវិជ្ជាដែលបានជ្រើស និង lessons ដែលបានដោះសោ ត្រូវរក្សាទុកនៅ `users/{uid}/learningProgress/current`។
 - ត្រូវ deploy `firestore.rules` បន្ទាប់ពីការកែប្រែ មុនពេលប្រើការរក្សាទុក quiz progress។
 - ការគណនាពិន្ទុបច្ចុប្បន្នធ្វើនៅ Flutter client ដូច្នេះវាសមស្របសម្រាប់ការរៀន/ការលេងប៉ុណ្ណោះ មិនមែនការប្រឡងផ្លូវការទេ។ ប្រសិនបើត្រូវការពិន្ទុដែលមិនអាចកែប្រែពី client បាន សូមផ្លាស់ប្ដូរការកំណត់ពិន្ទុទៅ trusted server ឬ Cloud Function។
 

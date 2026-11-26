@@ -3,7 +3,11 @@ import 'dart:typed_data';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/utils/firebase_error_message.dart';
 import '../../auth/presentation/landing_screen.dart';
+import '../data/learning_language.dart';
+import '../data/learning_progress_repository.dart';
+import '../data/preferred_language_repository.dart';
 import '../data/profile_photo_repository.dart';
 import 'pages/lessons_page.dart';
 import 'pages/quizzes_page.dart';
@@ -24,11 +28,16 @@ class StudentDashboardScreen extends StatefulWidget {
 class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
   int _selectedIndex = 0;
   late final Stream<Uint8List?> _profilePhotoStream;
+  late final Stream<LearningLanguage> _languageStream;
+  final _learningProgressRepository = const LearningProgressRepository();
 
   @override
   void initState() {
     super.initState();
     _profilePhotoStream = const ProfilePhotoRepository().watch(widget.user.uid);
+    _languageStream = const PreferredLanguageRepository().watch(
+      widget.user.uid,
+    );
   }
 
   void _selectPage(int index) {
@@ -42,10 +51,14 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
       MaterialPageRoute<void>(
         builder: (_) => Scaffold(
           appBar: AppBar(title: const Text('Settings')),
-          body: SettingsPage(onLogout: _logout),
+          body: SettingsPage(userId: widget.user.uid, onLogout: _logout),
         ),
       ),
     );
+  }
+
+  void _openSubjects() {
+    setState(() => _selectedIndex = 1);
   }
 
   Future<void> _logout() async {
@@ -64,14 +77,6 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
     final displayedName = drawerName == null || drawerName.isEmpty
         ? 'Study Smart Student'
         : drawerName;
-
-    final pages = <Widget>[
-      StudentHomePage(user: widget.user),
-      SubjectListPage(),
-      LessonsPage(userId: widget.user.uid),
-      QuizzesPage(userId: widget.user.uid),
-      StudentProfilePage(user: widget.user),
-    ];
 
     return Scaffold(
       appBar: AppBar(
@@ -167,7 +172,56 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
           ],
         ),
       ),
-      body: IndexedStack(index: _selectedIndex, children: pages),
+      body: StreamBuilder<LearningLanguage>(
+        stream: _languageStream,
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: SelectableText(
+                  firebaseErrorMessage(
+                    snapshot.error!,
+                    action: 'Loading your learning language',
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            );
+          }
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final language = snapshot.data!;
+          final pages = <Widget>[
+            StudentHomePage(
+              user: widget.user,
+              progressRepository: _learningProgressRepository,
+              language: language,
+              onChooseSubjects: _openSubjects,
+            ),
+            SubjectListPage(
+              userId: widget.user.uid,
+              progressRepository: _learningProgressRepository,
+            ),
+            LessonsPage(
+              userId: widget.user.uid,
+              progressRepository: _learningProgressRepository,
+              language: language,
+              onChooseSubjects: _openSubjects,
+            ),
+            QuizzesPage(
+              userId: widget.user.uid,
+              progressRepository: _learningProgressRepository,
+              language: language,
+              onChooseSubjects: _openSubjects,
+            ),
+            StudentProfilePage(user: widget.user),
+          ];
+          return IndexedStack(index: _selectedIndex, children: pages);
+        },
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (value) =>

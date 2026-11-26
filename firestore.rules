@@ -92,18 +92,234 @@ service cloud.firestore {
         && request.resource.data.createdAt is timestamp;
     }
 
-    function validScore(scores, quizId) {
-      return !scores.keys().hasAny([quizId])
-        || (scores.get(quizId, -1) is int
-          && scores.get(quizId, -1) >= 0
-          && scores.get(quizId, -1) <= 100);
+
+    function quizIds() {
+      return [
+        'english_alphabet_quiz',
+        'english_vocabulary_quiz',
+        'english_greetings_quiz',
+        'english_pronouns_quiz',
+        'english_nouns_quiz',
+        'english_verbs_quiz',
+        'english_adjectives_quiz',
+        'english_present_simple_quiz',
+        'english_question_words_quiz',
+        'english_reading_quiz',
+        'computer_parts_quiz',
+        'computer_software_quiz',
+        'computer_input_output_quiz',
+        'computer_files_quiz',
+        'computer_browser_quiz',
+        'computer_safety_quiz',
+        'computer_email_quiz',
+        'computer_documents_quiz',
+        'computer_networks_quiz',
+        'computer_troubleshooting_quiz',
+        'math_place_value_quiz',
+        'math_addition_subtraction_quiz',
+        'math_multiplication_quiz',
+        'math_division_quiz',
+        'math_fractions_quiz',
+        'math_decimals_quiz',
+        'math_measurement_quiz',
+        'math_geometry_quiz',
+        'math_patterns_quiz',
+        'math_word_problems_quiz',
+        'programming_algorithms_quiz',
+        'programming_variables_quiz',
+        'programming_data_types_quiz',
+        'programming_input_output_quiz',
+        'programming_operators_quiz',
+        'programming_conditions_quiz',
+        'programming_loops_quiz',
+        'programming_functions_quiz',
+        'programming_lists_quiz',
+        'programming_debugging_quiz'
+      ];
     }
+
+    function lessonIds() {
+      return [
+        'english_alphabet',
+        'english_vocabulary',
+        'english_greetings',
+        'english_pronouns',
+        'english_nouns',
+        'english_verbs',
+        'english_adjectives',
+        'english_present_simple',
+        'english_question_words',
+        'english_reading',
+        'computer_parts',
+        'computer_software',
+        'computer_input_output',
+        'computer_files',
+        'computer_browser',
+        'computer_safety',
+        'computer_email',
+        'computer_documents',
+        'computer_networks',
+        'computer_troubleshooting',
+        'math_place_value',
+        'math_addition_subtraction',
+        'math_multiplication',
+        'math_division',
+        'math_fractions',
+        'math_decimals',
+        'math_measurement',
+        'math_geometry',
+        'math_patterns',
+        'math_word_problems',
+        'programming_algorithms',
+        'programming_variables',
+        'programming_data_types',
+        'programming_input_output',
+        'programming_operators',
+        'programming_conditions',
+        'programming_loops',
+        'programming_functions',
+        'programming_lists',
+        'programming_debugging'
+      ];
+    }
+
+
+
+
+
+
+    function validInitialProgressUnlocks(data) {
+      return data.unlockedLessonIds.hasOnly([
+          'english_alphabet',
+          'computer_parts',
+          'math_place_value',
+          'programming_algorithms'
+        ])
+        && (!data.unlockedLessonIds.hasAny(['english_alphabet'])
+          || data.selectedSubjectIds.hasAny(['english_basic']))
+        && (!data.unlockedLessonIds.hasAny(['computer_parts'])
+          || data.selectedSubjectIds.hasAny(['computer_basic']))
+        && (!data.unlockedLessonIds.hasAny(['math_place_value'])
+          || data.selectedSubjectIds.hasAny(['mathematics_basic']))
+        && (!data.unlockedLessonIds.hasAny(['programming_algorithms'])
+          || data.selectedSubjectIds.hasAny(['programming_basic']));
+    }
+
+
+
+
+    function nextLessonIdForQuiz(quizId) {
+      return {
+        'english_alphabet_quiz': 'english_vocabulary',
+        'english_vocabulary_quiz': 'english_greetings',
+        'english_greetings_quiz': 'english_pronouns',
+        'english_pronouns_quiz': 'english_nouns',
+        'english_nouns_quiz': 'english_verbs',
+        'english_verbs_quiz': 'english_adjectives',
+        'english_adjectives_quiz': 'english_present_simple',
+        'english_present_simple_quiz': 'english_question_words',
+        'english_question_words_quiz': 'english_reading',
+        'computer_parts_quiz': 'computer_software',
+        'computer_software_quiz': 'computer_input_output',
+        'computer_input_output_quiz': 'computer_files',
+        'computer_files_quiz': 'computer_browser',
+        'computer_browser_quiz': 'computer_safety',
+        'computer_safety_quiz': 'computer_email',
+        'computer_email_quiz': 'computer_documents',
+        'computer_documents_quiz': 'computer_networks',
+        'computer_networks_quiz': 'computer_troubleshooting',
+        'math_place_value_quiz': 'math_addition_subtraction',
+        'math_addition_subtraction_quiz': 'math_multiplication',
+        'math_multiplication_quiz': 'math_division',
+        'math_division_quiz': 'math_fractions',
+        'math_fractions_quiz': 'math_decimals',
+        'math_decimals_quiz': 'math_measurement',
+        'math_measurement_quiz': 'math_geometry',
+        'math_geometry_quiz': 'math_patterns',
+        'math_patterns_quiz': 'math_word_problems',
+        'programming_algorithms_quiz': 'programming_variables',
+        'programming_variables_quiz': 'programming_data_types',
+        'programming_data_types_quiz': 'programming_input_output',
+        'programming_input_output_quiz': 'programming_operators',
+        'programming_operators_quiz': 'programming_conditions',
+        'programming_conditions_quiz': 'programming_loops',
+        'programming_loops_quiz': 'programming_functions',
+        'programming_functions_quiz': 'programming_lists',
+        'programming_lists_quiz': 'programming_debugging'
+      }.get(quizId, null);
+    }
+
+    function validQuizUnlockUpdate(data) {
+      let quizId = data.get('lastQuizId', null);
+      let nextLessonId = nextLessonIdForQuiz(quizId);
+      return quizId == null
+        ? data.unlockedLessonIds.size()
+          <= resource.data.unlockedLessonIds.size() + 1
+        : nextLessonId == null
+        ? data.unlockedLessonIds.size()
+          == resource.data.unlockedLessonIds.size()
+        : data.unlockedLessonIds.size()
+            <= resource.data.unlockedLessonIds.size() + 1
+          && data.unlockedLessonIds.hasAny([nextLessonId]);
+    }
+
+    function validProgressUnlockUpdate(data) {
+      return data.diff(resource.data).affectedKeys().hasAny(['passedQuizIds'])
+        ? validQuizUnlockUpdate(data)
+        : validSubjectUnlockUpdate(data);
+    }
+
+    function validSubjectUnlockUpdate(data) {
+      let allowedUnlocks = resource.data.unlockedLessonIds.concat([
+        data.selectedSubjectIds.hasAny(['english_basic'])
+          ? 'english_alphabet'
+          : '',
+        data.selectedSubjectIds.hasAny(['computer_basic'])
+          ? 'computer_parts'
+          : '',
+        data.selectedSubjectIds.hasAny(['mathematics_basic'])
+          ? 'math_place_value'
+          : '',
+        data.selectedSubjectIds.hasAny(['programming_basic'])
+          ? 'programming_algorithms'
+          : ''
+      ]);
+      return data.unlockedLessonIds.hasOnly(allowedUnlocks);
+    }
+
+    function validScoreValue(score) {
+      return score is int && score >= 0 && score <= 100;
+    }
+
+
+    function validScoreTransitionById(data, oldData) {
+      let changedScores = data.bestScores.diff(oldData.bestScores).affectedKeys();
+      let newPasses = data.passedQuizIds.toSet()
+        .difference(oldData.passedQuizIds.toSet());
+      let quizId = data.get('lastQuizId', null);
+      return quizId == null
+        ? changedScores.size() == 0 && newPasses.size() == 0
+        : newPasses.size() <= 1
+          && changedScores.size() <= 1
+          && changedScores.hasOnly([quizId])
+          && newPasses.hasOnly([quizId])
+          && changedScores.hasAll(newPasses)
+          && (changedScores.size() == 0
+            || (validScoreValue(data.bestScores.get(quizId, -1))
+              && data.bestScores.get(quizId, -1)
+                >= oldData.bestScores.get(quizId, 0)))
+          && (newPasses.size() == 0
+            || data.bestScores.get(quizId, 0) >= 80);
+    }
+
 
     function validLearningProgress(data) {
       return data.keys().hasOnly([
           'bestScores',
           'passedQuizIds',
           'unlockedLessonIds',
+          'selectedSubjectIds',
+          'lastQuizId',
           'credits',
           'updatedAt'
         ])
@@ -111,64 +327,32 @@ service cloud.firestore {
           'bestScores',
           'passedQuizIds',
           'unlockedLessonIds',
+          'selectedSubjectIds',
           'credits',
           'updatedAt'
         ])
         && data.bestScores is map
-        && data.bestScores.keys().hasOnly([
-          'english_alphabet_quiz',
-          'english_vocabulary_quiz',
-          'computer_safety_quiz',
-          'math_fractions_quiz',
-          'programming_variables_quiz'
-        ])
-        && validScore(data.bestScores, 'english_alphabet_quiz')
-        && validScore(data.bestScores, 'english_vocabulary_quiz')
-        && validScore(data.bestScores, 'computer_safety_quiz')
-        && validScore(data.bestScores, 'math_fractions_quiz')
-        && validScore(data.bestScores, 'programming_variables_quiz')
         && data.passedQuizIds is list
-        && data.passedQuizIds.hasOnly([
-          'english_alphabet_quiz',
-          'english_vocabulary_quiz',
-          'computer_safety_quiz',
-          'math_fractions_quiz',
-          'programming_variables_quiz'
-        ])
         && data.passedQuizIds.toSet().size() == data.passedQuizIds.size()
         && data.unlockedLessonIds is list
-        && data.unlockedLessonIds.hasOnly([
-          'english_alphabet',
-          'english_vocabulary',
-          'computer_safety',
-          'math_fractions',
-          'programming_variables'
-        ])
+        && data.unlockedLessonIds.hasOnly(lessonIds())
         && data.unlockedLessonIds.toSet().size() == data.unlockedLessonIds.size()
-        && data.unlockedLessonIds.hasAny(['english_alphabet'])
+        && data.selectedSubjectIds is list
+        && data.selectedSubjectIds.hasOnly([
+          'english_basic',
+          'computer_basic',
+          'mathematics_basic',
+          'programming_basic'
+        ])
+        && data.selectedSubjectIds.toSet().size() == data.selectedSubjectIds.size()
+        && (!data.keys().hasAny(['lastQuizId'])
+          || data.lastQuizId == null
+          || quizIds().hasAny([data.lastQuizId]))
         && data.credits is int
         && data.credits == data.passedQuizIds.size()
         && data.credits >= 0
-        && data.credits <= 5
-        && data.updatedAt is timestamp
-        && (!data.passedQuizIds.hasAny(['english_alphabet_quiz'])
-          || data.bestScores.get('english_alphabet_quiz', 0) >= 80)
-        && (!data.passedQuizIds.hasAny(['english_vocabulary_quiz'])
-          || data.bestScores.get('english_vocabulary_quiz', 0) >= 80)
-        && (!data.passedQuizIds.hasAny(['computer_safety_quiz'])
-          || data.bestScores.get('computer_safety_quiz', 0) >= 80)
-        && (!data.passedQuizIds.hasAny(['math_fractions_quiz'])
-          || data.bestScores.get('math_fractions_quiz', 0) >= 80)
-        && (!data.passedQuizIds.hasAny(['programming_variables_quiz'])
-          || data.bestScores.get('programming_variables_quiz', 0) >= 80)
-        && (data.passedQuizIds.hasAny(['english_alphabet_quiz'])
-          == data.unlockedLessonIds.hasAny(['english_vocabulary']))
-        && (data.passedQuizIds.hasAny(['english_vocabulary_quiz'])
-          == data.unlockedLessonIds.hasAny(['computer_safety']))
-        && (data.passedQuizIds.hasAny(['computer_safety_quiz'])
-          == data.unlockedLessonIds.hasAny(['math_fractions']))
-        && (data.passedQuizIds.hasAny(['math_fractions_quiz'])
-          == data.unlockedLessonIds.hasAny(['programming_variables']));
+        && data.credits <= 40
+        && data.updatedAt is timestamp;
     }
 
     match /users/{uid} {
@@ -200,23 +384,21 @@ service cloud.firestore {
         allow list: if isAdmin();
         allow create: if isOwner(uid)
           && progressId == 'current'
-          && validLearningProgress(request.resource.data);
+          && validLearningProgress(request.resource.data)
+          && request.resource.data.bestScores.size() == 0
+          && request.resource.data.passedQuizIds.size() == 0
+          && request.resource.data.get('lastQuizId', null) == null
+          && validInitialProgressUnlocks(request.resource.data);
         allow update: if isOwner(uid)
           && progressId == 'current'
           && validLearningProgress(request.resource.data)
+          && validProgressUnlockUpdate(request.resource.data)
           && request.resource.data.passedQuizIds.hasAll(resource.data.passedQuizIds)
           && request.resource.data.unlockedLessonIds.hasAll(resource.data.unlockedLessonIds)
           && request.resource.data.credits >= resource.data.credits
-          && request.resource.data.bestScores.get('english_alphabet_quiz', 0)
-            >= resource.data.bestScores.get('english_alphabet_quiz', 0)
-          && request.resource.data.bestScores.get('english_vocabulary_quiz', 0)
-            >= resource.data.bestScores.get('english_vocabulary_quiz', 0)
-          && request.resource.data.bestScores.get('computer_safety_quiz', 0)
-            >= resource.data.bestScores.get('computer_safety_quiz', 0)
-          && request.resource.data.bestScores.get('math_fractions_quiz', 0)
-            >= resource.data.bestScores.get('math_fractions_quiz', 0)
-          && request.resource.data.bestScores.get('programming_variables_quiz', 0)
-            >= resource.data.bestScores.get('programming_variables_quiz', 0);
+          && (!request.resource.data.diff(resource.data).affectedKeys()
+              .hasAny(['bestScores', 'passedQuizIds'])
+            || validScoreTransitionById(request.resource.data, resource.data));
         allow delete: if false;
       }
 

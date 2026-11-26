@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,7 +11,9 @@ import 'package:study_smart_dev/core/utils/date_of_birth_format.dart';
 import 'package:study_smart_dev/features/auth/data/student_registration_repository.dart';
 import 'package:study_smart_dev/features/admin/data/admin_student_repository.dart';
 import 'package:study_smart_dev/features/student/data/learning_curriculum.dart';
+import 'package:study_smart_dev/features/student/data/learning_language.dart';
 import 'package:study_smart_dev/features/student/data/learning_progress_repository.dart';
+import 'package:study_smart_dev/features/student/data/preferred_language_repository.dart';
 import 'package:study_smart_dev/shared/widgets/stat_card.dart';
 
 class _MemoryAdminStudentRepository extends AdminStudentRepository {
@@ -22,11 +26,35 @@ class _MemoryAdminStudentRepository extends AdminStudentRepository {
 }
 
 class _MemoryLearningProgressRepository extends LearningProgressRepository {
-  LearningProgress _progress = LearningProgress.initial();
+  late LearningProgress _progress;
   int? submittedScore;
+
+  _MemoryLearningProgressRepository({
+    Set<String> selectedSubjectIds = const {LearningSubjectIds.englishBasic},
+  }) {
+    _progress = LearningProgress.initial().withSelectedSubjects(
+      selectedSubjectIds,
+    );
+  }
 
   @override
   Stream<LearningProgress> watch(String userId) => Stream.value(_progress);
+
+  @override
+  Future<LearningProgress> setSubjectSelected({
+    required String userId,
+    required String subjectId,
+    required bool selected,
+  }) async {
+    final subjectIds = Set<String>.from(_progress.selectedSubjectIds);
+    if (selected) {
+      subjectIds.add(subjectId);
+    } else {
+      subjectIds.remove(subjectId);
+    }
+    _progress = _progress.withSelectedSubjects(subjectIds);
+    return _progress;
+  }
 
   @override
   Future<QuizSubmissionResult> submitQuiz({
@@ -41,8 +69,33 @@ class _MemoryLearningProgressRepository extends LearningProgressRepository {
   }
 }
 
+class _MemoryPreferredLanguageRepository extends PreferredLanguageRepository {
+  LearningLanguage language = LearningLanguage.english;
+  final _controller = StreamController<LearningLanguage>.broadcast();
+
+  @override
+  Stream<LearningLanguage> watch(String userId) async* {
+    yield language;
+    yield* _controller.stream;
+  }
+
+  @override
+  Future<void> setLanguage({
+    required String userId,
+    required LearningLanguage language,
+  }) async {
+    this.language = language;
+    _controller.add(language);
+  }
+
+  Future<void> dispose() => _controller.close();
+}
+
 class _TestUser implements User {
   const _TestUser();
+
+  @override
+  String get uid => 'test-user';
 
   @override
   String? get displayName => 'Alex';
@@ -97,6 +150,7 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: LandingScreen()));
 
     expect(find.text('Study Smart'), findsWidgets);
+    expect(find.text('SDS'), findsOneWidget);
     expect(find.text('Student Login'), findsOneWidget);
     expect(find.text('Student Register'), findsOneWidget);
   });
@@ -114,6 +168,7 @@ void main() {
       find.byType(TextFormField).first,
     );
     expect(emailField.controller?.text, 'student@gmail.com');
+    expect(find.text('SDS'), findsOneWidget);
   });
 
   testWidgets('Student registration asks for birth date, not age or code', (
@@ -122,6 +177,7 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: StudentRegisterScreen()));
 
     expect(find.text('Date of Birth'), findsOneWidget);
+    expect(find.text('SDS'), findsOneWidget);
     expect(find.text('Select date of birth'), findsOneWidget);
     expect(find.text('Age'), findsNothing);
     expect(find.text('Student Code'), findsNothing);
@@ -167,6 +223,7 @@ void main() {
       find.byType(TextFormField).first,
     );
     expect(emailField.controller?.text, 'admin@studysmart.com');
+    expect(find.text('SDS'), findsOneWidget);
 
     var passwordField = tester.widget<EditableText>(
       find.descendant(
@@ -198,6 +255,7 @@ void main() {
 
     final firstQuiz = LearningCurriculum.quizzes.first;
     final progress = LearningProgress.initial()
+        .withSelectedSubjects({LearningSubjectIds.englishBasic})
         .withQuizResult(quiz: firstQuiz, score: 80)
         .progress;
     final repository = _MemoryAdminStudentRepository([
@@ -267,7 +325,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Average progress'), findsOneWidget);
-    expect(find.text('10%'), findsOneWidget);
+    expect(find.text('1%'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('Sok Dara'),
       250,
@@ -278,7 +336,7 @@ void main() {
     await tester.tap(find.text('Sok Dara'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Progress: 1/5 quizzes passed'), findsOneWidget);
+    expect(find.text('Progress: 1/40 quizzes passed'), findsOneWidget);
     expect(find.text('Best score: 80% · Passed'), findsOneWidget);
     expect(find.textContaining('English Alphabet: A, B, C'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -289,6 +347,7 @@ void main() {
   ) async {
     SharedPreferences.setMockInitialValues({});
     final themeController = AppThemeController();
+    final languageRepository = _MemoryPreferredLanguageRepository();
 
     await tester.pumpWidget(
       AppThemeScope(
@@ -299,7 +358,13 @@ void main() {
             theme: ThemeData.light(),
             darkTheme: ThemeData.dark(),
             themeMode: themeController.themeMode,
-            home: Scaffold(body: SettingsPage(onLogout: () {})),
+            home: Scaffold(
+              body: SettingsPage(
+                userId: 'student-1',
+                languageRepository: languageRepository,
+                onLogout: () {},
+              ),
+            ),
           ),
         ),
       ),
@@ -320,7 +385,49 @@ void main() {
     final preferences = await SharedPreferences.getInstance();
     expect(preferences.getBool(AppThemeController.preferenceKey), isTrue);
 
+    expect(find.text('Email notifications'), findsNothing);
+    expect(find.text('English'), findsOneWidget);
+    await tester.tap(find.text('Preferred language'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ខ្មែរ'));
+    await tester.pumpAndSettle();
+    expect(languageRepository.language, LearningLanguage.khmer);
+    expect(find.text('ខ្មែរ'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await languageRepository.dispose();
     themeController.dispose();
+  });
+
+  test('Lessons and quiz content follow the selected learning language', () {
+    for (final lesson in LearningCurriculum.lessons) {
+      expect(lesson.titleFor(LearningLanguage.khmer), isNotEmpty);
+      expect(lesson.summaryFor(LearningLanguage.english), isNotEmpty);
+      for (final concept in lesson.concepts) {
+        expect(
+          lesson.conceptMeaningFor(concept, LearningLanguage.english),
+          isNotEmpty,
+        );
+        expect(
+          lesson.conceptMeaningFor(concept, LearningLanguage.khmer),
+          isNotEmpty,
+        );
+      }
+
+      final quiz = LearningCurriculum.quizForLesson(lesson.id)!;
+      final englishQuiz = LearningCurriculum.quizForLanguage(
+        quiz,
+        LearningLanguage.english,
+      );
+      final khmerQuiz = LearningCurriculum.quizForLanguage(
+        quiz,
+        LearningLanguage.khmer,
+      );
+      expect(englishQuiz.questions.first.prompt, startsWith('What does'));
+      expect(khmerQuiz.questions.first.prompt, startsWith('តើពាក្យ'));
+      expect(englishQuiz.questions, hasLength(10));
+      expect(khmerQuiz.questions, hasLength(10));
+    }
   });
 
   test('Passing the beginner English quiz unlocks Vocabulary Essentials', () {
@@ -334,26 +441,67 @@ void main() {
       'Vocabulary Essentials',
     );
     expect(
-      calculateQuizScore(quiz, [0, 1, 2, 1, 0]),
-      LearningCurriculum.passScore,
+      calculateQuizScore(
+        quiz,
+        List<int>.generate(
+          quiz.questions.length,
+          (index) => index < 8
+              ? quiz.questions[index].correctOption
+              : (quiz.questions[index].correctOption + 1) %
+                    quiz.questions[index].options.length,
+        ),
+      ),
+      80,
     );
+    expect(LearningCurriculum.subjects, hasLength(4));
+    for (final subject in LearningCurriculum.subjects) {
+      final lessons = LearningCurriculum.lessonsForSubject(subject.id);
+      expect(lessons, hasLength(10));
+      for (final lesson in lessons) {
+        expect(
+          LearningCurriculum.quizForLesson(lesson.id)?.questions,
+          hasLength(LearningCurriculum.questionsPerQuiz),
+        );
+      }
+    }
   });
 
-  test('New learning progress starts at the beginner English lesson', () {
+  test('New learning progress waits for the student to choose subjects', () {
     final progress = LearningProgress.fromData(null);
 
     expect(progress.credits, 0);
     expect(progress.bestScores, isEmpty);
-    expect(progress.unlockedLessonIds, {LearningCurriculum.lessons.first.id});
+    expect(progress.selectedSubjectIds, isEmpty);
+    expect(progress.unlockedLessonIds, isEmpty);
+    expect(progress.lastQuizId, isNull);
   });
 
+  test(
+    'Older progress documents remain readable without subject selections',
+    () {
+      final progress = LearningProgress.fromData({
+        'bestScores': const <String, int>{},
+        'passedQuizIds': const <String>[],
+        'unlockedLessonIds': const ['english_alphabet'],
+        'credits': 0,
+      });
+
+      expect(progress.selectedSubjectIds, isEmpty);
+      expect(progress.unlockedLessonIds, {'english_alphabet'});
+      expect(progress.lastQuizId, isNull);
+    },
+  );
+
   test('Passing a quiz earns one credit and unlocks the next lesson once', () {
-    final initial = LearningProgress.initial();
+    final initial = LearningProgress.initial().withSelectedSubjects({
+      LearningSubjectIds.englishBasic,
+    });
     final quiz = LearningCurriculum.quizzes.first;
 
     final failedAttempt = initial.withQuizResult(quiz: quiz, score: 60);
     expect(failedAttempt.progress.credits, 0);
     expect(failedAttempt.earnedCredit, isFalse);
+    expect(failedAttempt.progress.lastQuizId, quiz.id);
     expect(failedAttempt.progress.unlockedLessonIds, {
       LearningCurriculum.lessons.first.id,
     });
@@ -361,9 +509,14 @@ void main() {
     final passedAttempt = initial.withQuizResult(quiz: quiz, score: 80);
     expect(passedAttempt.progress.credits, 1);
     expect(passedAttempt.earnedCredit, isTrue);
+    expect(passedAttempt.progress.lastQuizId, quiz.id);
     expect(
       passedAttempt.progress.unlockedLessonIds,
       contains(quiz.nextLessonId),
+    );
+    expect(
+      passedAttempt.progress.unlockedLessonIds,
+      isNot(contains('computer_safety')),
     );
 
     final retake = passedAttempt.progress.withQuizResult(
@@ -380,6 +533,10 @@ void main() {
   ) async {
     final repository = _MemoryLearningProgressRepository();
     final quiz = LearningCurriculum.quizzes.first;
+    final englishQuiz = LearningCurriculum.quizForLanguage(
+      quiz,
+      LearningLanguage.english,
+    );
 
     await tester.pumpWidget(
       MaterialApp(
@@ -394,18 +551,20 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Ready'), findsOneWidget);
-    expect(find.text('Locked'), findsNWidgets(4));
+    expect(find.text('Locked'), findsWidgets);
 
     await tester.tap(find.text(quiz.title));
     await tester.pumpAndSettle();
 
-    for (var index = 0; index < quiz.questions.length; index++) {
-      final question = quiz.questions[index];
+    for (var index = 0; index < englishQuiz.questions.length; index++) {
+      final question = englishQuiz.questions[index];
       await tester.tap(find.text(question.options[question.correctOption]));
       await tester.pump();
       await tester.tap(
         find.text(
-          index == quiz.questions.length - 1 ? 'Submit quiz' : 'Next question',
+          index == englishQuiz.questions.length - 1
+              ? 'Submit quiz'
+              : 'Next question',
         ),
       );
       await tester.pumpAndSettle();
@@ -431,8 +590,72 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: ProgressOverview(
-            userId: 'student-1',
+          body: ListView(
+            children: [
+              ProgressOverview(
+                userId: 'student-1',
+                progressRepository: repository,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('1 / 40 credits earned'), findsOneWidget);
+    expect(find.text('Best score: 80%'), findsOneWidget);
+    expect(find.text('Not attempted'), findsNWidgets(39));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Home page displays the student overview in dark mode', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData.light(),
+        darkTheme: ThemeData.dark(),
+        themeMode: ThemeMode.dark,
+        home: Scaffold(
+          body: StudentHomePage(
+            user: const _TestUser(),
+            progressRepository: _MemoryLearningProgressRepository(
+              selectedSubjectIds: {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Welcome back'), findsOneWidget);
+    expect(find.text('Alex'), findsOneWidget);
+    expect(find.text('Your overview'), findsOneWidget);
+    expect(find.text('Start your learning journey'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Home overview reflects selected subject quiz progress', (
+    WidgetTester tester,
+  ) async {
+    final repository = _MemoryLearningProgressRepository();
+    await repository.submitQuiz(
+      userId: 'student-1',
+      quiz: LearningCurriculum.quizzes.first,
+      score: 80,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StudentHomePage(
+            user: const _TestUser(),
             progressRepository: repository,
           ),
         ),
@@ -440,27 +663,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('1 / 5 credits earned'), findsOneWidget);
-    expect(find.text('Best score: 80%'), findsOneWidget);
-    expect(find.text('Not attempted'), findsNWidgets(4));
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('Home page displays the student overview in dark mode', (
-    WidgetTester tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: ThemeData.light(),
-        darkTheme: ThemeData.dark(),
-        themeMode: ThemeMode.dark,
-        home: const Scaffold(body: StudentHomePage(user: _TestUser())),
-      ),
-    );
-
-    expect(find.text('Welcome back'), findsOneWidget);
-    expect(find.text('Alex'), findsOneWidget);
-    expect(find.text('Your overview'), findsOneWidget);
+    expect(find.text('10%'), findsNWidgets(2));
+    expect(find.text('80%'), findsOneWidget);
+    expect(find.text('1 of 10 lessons completed'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -473,13 +678,122 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: SubjectListPage())),
+      MaterialApp(
+        home: Scaffold(
+          body: SubjectListPage(
+            userId: 'student-1',
+            progressRepository: _MemoryLearningProgressRepository(),
+          ),
+        ),
+      ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Explore subjects'), findsOneWidget);
+    expect(find.text('Choose your subjects'), findsOneWidget);
     expect(find.text('English Basic'), findsOneWidget);
     expect(find.text('Programming Basic'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Selecting a subject unlocks it and saves the selection', (
+    WidgetTester tester,
+  ) async {
+    final repository = _MemoryLearningProgressRepository(
+      selectedSubjectIds: {},
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SubjectListPage(
+            userId: 'student-1',
+            progressRepository: repository,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Start learning').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Remove subject'), findsOneWidget);
+    expect(find.text('1 selected · 40 lessons available'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  test('Selecting subjects unlocks only their first lessons', () {
+    final progress = LearningProgress.initial().withSelectedSubjects({
+      LearningSubjectIds.computerBasic,
+      LearningSubjectIds.programmingBasic,
+    });
+
+    expect(progress.selectedSubjectIds, {
+      LearningSubjectIds.computerBasic,
+      LearningSubjectIds.programmingBasic,
+    });
+    expect(progress.unlockedLessonIds, {
+      'computer_parts',
+      'programming_algorithms',
+    });
+  });
+
+  testWidgets('Lessons show selected subject content and its quiz', (
+    WidgetTester tester,
+  ) async {
+    final repository = _MemoryLearningProgressRepository();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: LessonsPage(
+            userId: 'student-1',
+            progressRepository: repository,
+            language: LearningLanguage.khmer,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('អក្ខរក្រមអង់គ្លេស៖ A, B, C'), findsOneWidget);
+    expect(find.text('Computer Safety'), findsNothing);
+    await tester.tap(find.text('អក្ខរក្រមអង់គ្លេស៖ A, B, C'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('គោលគំនិតសំខាន់ៗ'), findsOneWidget);
+    expect(find.textContaining('អក្សរ A-Z'), findsWidgets);
+    await tester.scrollUntilVisible(
+      find.text('ចាប់ផ្តើមតេស្ត'),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('ចាប់ផ្តើមតេស្ត'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Quizzes only show quizzes for selected subjects', (
+    WidgetTester tester,
+  ) async {
+    final repository = _MemoryLearningProgressRepository(
+      selectedSubjectIds: {LearningSubjectIds.computerBasic},
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: QuizzesPage(
+            userId: 'student-1',
+            progressRepository: repository,
+            language: LearningLanguage.khmer,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('ផ្នែកផ្សេងៗរបស់កុំព្យូទ័រ - តេស្ត'), findsOneWidget);
+    expect(find.text('English Alphabet Quiz'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

@@ -1,17 +1,23 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/utils/firebase_error_message.dart';
+import '../../../../shared/widgets/select_subject_prompt.dart';
 import '../../data/learning_curriculum.dart';
+import '../../data/learning_language.dart';
 import '../../data/learning_progress_repository.dart';
 
 class QuizzesPage extends StatelessWidget {
   final String userId;
   final LearningProgressRepository progressRepository;
+  final LearningLanguage language;
+  final VoidCallback? onChooseSubjects;
 
   const QuizzesPage({
     super.key,
     required this.userId,
     this.progressRepository = const LearningProgressRepository(),
+    this.language = LearningLanguage.english,
+    this.onChooseSubjects,
   });
 
   @override
@@ -38,74 +44,123 @@ class QuizzesPage extends StatelessWidget {
         }
 
         final progress = snapshot.data!;
-        return ListView.builder(
+        if (progress.selectedSubjectIds.isEmpty) {
+          return SelectSubjectPrompt(
+            message: 'Choose a subject to see its lesson quizzes and results.',
+            onChooseSubjects: onChooseSubjects,
+          );
+        }
+
+        final quizzes = LearningCurriculum.quizzes.where((quiz) {
+          final lesson = LearningCurriculum.lessonById(quiz.lessonId);
+          return progress.selectedSubjectIds.contains(lesson.subjectId);
+        });
+
+        return ListView(
           padding: const EdgeInsets.all(20),
-          itemCount: LearningCurriculum.quizzes.length + 1,
-          itemBuilder: (context, index) {
-            if (index == 0) {
-              return Card(
-                child: ListTile(
-                  leading: const Icon(Icons.stars_rounded),
-                  title: Text('Credits: ${progress.credits}'),
-                  subtitle: Text(
-                    'Pass a quiz with ${LearningCurriculum.passScore}% to earn '
-                    '1 credit and unlock the next lesson.',
-                  ),
-                ),
-              );
-            }
-
-            final quiz = LearningCurriculum.quizzes[index - 1];
-            final lessonUnlocked = progress.unlockedLessonIds.contains(
-              quiz.lessonId,
-            );
-            final passed = progress.passedQuizIds.contains(quiz.id);
-            final bestScore = progress.bestScores[quiz.id];
-            final status = !lessonUnlocked
-                ? 'Locked'
-                : passed
-                ? 'Completed'
-                : 'Ready';
-            final subtitle = bestScore == null
-                ? 'Pass with ${LearningCurriculum.passScore}% to earn 1 credit'
-                : 'Best score: $bestScore%';
-
-            return Card(
+          children: [
+            Card(
               child: ListTile(
-                leading: const Icon(
-                  Icons.quiz_rounded,
-                  color: Colors.deepPurple,
+                leading: const Icon(Icons.stars_rounded),
+                title: Text('Credits: ${progress.credits}'),
+                subtitle: Text(
+                  'Pass a lesson quiz with ${LearningCurriculum.passScore}% '
+                  'to earn 1 credit and unlock the next lesson in that subject.',
                 ),
-                title: Text(quiz.title),
-                subtitle: Text(subtitle),
-                trailing: Chip(label: Text(status)),
-                onTap: lessonUnlocked
-                    ? () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => QuizAttemptScreen(
-                            userId: userId,
-                            quiz: quiz,
-                            progressRepository: progressRepository,
-                          ),
-                        ),
-                      )
-                    : () {
-                        final lesson = LearningCurriculum.lessonById(
-                          quiz.lessonId,
-                        );
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Complete ${lesson.title} to unlock this quiz.',
-                            ),
-                          ),
-                        );
-                      },
               ),
-            );
-          },
+            ),
+            const SizedBox(height: 8),
+            for (final quiz in quizzes)
+              _QuizCard(
+                quiz: quiz,
+                progress: progress,
+                userId: userId,
+                progressRepository: progressRepository,
+                language: language,
+              ),
+          ],
         );
       },
+    );
+  }
+}
+
+class _QuizCard extends StatelessWidget {
+  final QuizDefinition quiz;
+  final LearningProgress progress;
+  final String userId;
+  final LearningProgressRepository progressRepository;
+  final LearningLanguage language;
+
+  const _QuizCard({
+    required this.quiz,
+    required this.progress,
+    required this.userId,
+    required this.progressRepository,
+    required this.language,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final lesson = LearningCurriculum.lessonById(quiz.lessonId);
+    final localizedQuiz = LearningCurriculum.quizForLanguage(quiz, language);
+    final lessonUnlocked = progress.unlockedLessonIds.contains(quiz.lessonId);
+    final passed = progress.passedQuizIds.contains(quiz.id);
+    final bestScore = progress.bestScores[quiz.id];
+    final status = !lessonUnlocked
+        ? language.isKhmer
+              ? 'ជាប់សោ'
+              : 'Locked'
+        : passed
+        ? language.isKhmer
+              ? 'បានបញ្ចប់'
+              : 'Completed'
+        : language.isKhmer
+        ? 'រួចរាល់'
+        : 'Ready';
+    final subtitle = bestScore == null
+        ? '${lesson.subjectFor(language)} · ${lesson.titleFor(language)} · '
+              '${language.isKhmer ? 'ត្រូវបានពិន្ទុ' : 'Pass with'} '
+              '${LearningCurriculum.passScore}% '
+              '${language.isKhmer ? 'ដើម្បីទទួលបាន 1 credit' : 'to earn 1 credit'}'
+        : '${lesson.subjectFor(language)} · ${lesson.titleFor(language)} · '
+              '${language.isKhmer ? 'ពិន្ទុល្អបំផុត' : 'Best score'}: $bestScore%';
+
+    return Card(
+      margin: const EdgeInsets.only(top: 8),
+      child: ListTile(
+        leading: const Icon(Icons.quiz_rounded, color: Colors.deepPurple),
+        title: Text(localizedQuiz.title),
+        subtitle: Text(subtitle),
+        trailing: Chip(label: Text(status)),
+        onTap: lessonUnlocked
+            ? () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => QuizAttemptScreen(
+                    userId: userId,
+                    quiz: localizedQuiz,
+                    progressRepository: progressRepository,
+                    language: language,
+                  ),
+                ),
+              )
+            : () {
+                final requiredQuiz = LearningCurriculum.quizUnlockingLesson(
+                  lesson.id,
+                );
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      requiredQuiz == null
+                          ? 'Choose ${lesson.subject} to unlock this quiz.'
+                          : 'Pass ${requiredQuiz.title} with '
+                                '${LearningCurriculum.passScore}% to unlock '
+                                '${lesson.title}.',
+                    ),
+                  ),
+                );
+              },
+      ),
     );
   }
 }
@@ -114,12 +169,14 @@ class QuizAttemptScreen extends StatefulWidget {
   final String userId;
   final QuizDefinition quiz;
   final LearningProgressRepository progressRepository;
+  final LearningLanguage language;
 
   const QuizAttemptScreen({
     super.key,
     required this.userId,
     required this.quiz,
     this.progressRepository = const LearningProgressRepository(),
+    this.language = LearningLanguage.english,
   });
 
   @override
@@ -287,16 +344,28 @@ class _QuizAttemptScreenState extends State<QuizAttemptScreen> {
             Text(
               passed
                   ? result.earnedCredit
-                        ? 'Passed! You earned 1 credit.'
+                        ? widget.language.isKhmer
+                              ? 'ជាប់ហើយ! អ្នកទទួលបាន 1 credit។'
+                              : 'Passed! You earned 1 credit.'
+                        : widget.language.isKhmer
+                        ? 'ជាប់ហើយ! Credit ពីមុននៅដដែល។'
                         : 'Passed! Your previous credit is kept.'
                   : result.progress.passedQuizIds.contains(widget.quiz.id)
-                  ? 'Not passed this time. Your previous pass is kept.'
+                  ? widget.language.isKhmer
+                        ? 'មិនជាប់លើកនេះទេ ប៉ុន្តែលទ្ធផលជាប់ពីមុននៅដដែល។'
+                        : 'Not passed this time. Your previous pass is kept.'
+                  : widget.language.isKhmer
+                  ? 'អ្នកត្រូវការពិន្ទុ ${LearningCurriculum.passScore}% ដើម្បីជាប់។ សូមសាកម្ដងទៀត។'
                   : 'You need ${LearningCurriculum.passScore}% to pass. Try again.',
               textAlign: TextAlign.center,
             ),
             if (passed && nextLesson != null) ...[
               const SizedBox(height: 8),
-              Text('${nextLesson.title} is now unlocked.'),
+              Text(
+                widget.language.isKhmer
+                    ? 'បានដោះសោ ${nextLesson.titleFor(widget.language)} ហើយ។'
+                    : '${nextLesson.title} is now unlocked.',
+              ),
             ],
             const SizedBox(height: 8),
             Text('Total credits: ${result.progress.credits}'),
@@ -306,7 +375,7 @@ class _QuizAttemptScreenState extends State<QuizAttemptScreen> {
             else
               ElevatedButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Back to quizzes'),
+                child: const Text('Back'),
               ),
           ],
         ),
