@@ -458,14 +458,14 @@ class _QuizAttemptScreenState extends State<QuizAttemptScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              passed
-                  ? result.earnedCredit
-                        ? widget.language.isKhmer
-                              ? 'ជាប់ហើយ! អ្នកទទួលបាន 1 credit។'
-                              : 'Passed! You earned 1 credit.'
-                        : widget.language.isKhmer
-                        ? 'ជាប់ហើយ! Credit ពីមុននៅដដែល។'
-                        : 'Passed! Your previous credit is kept.'
+              result.earnedCredit
+                  ? widget.language.isKhmer
+                        ? 'បានទទួល Credit ថ្មីដោយស្វ័យប្រវត្តិ។'
+                        : 'A new credit was earned automatically.'
+                  : passed
+                  ? widget.language.isKhmer
+                        ? 'ជាប់ហើយ! Credit ពិន្ទុបន្តពីលទ្ធផលមុន។'
+                        : 'Passed! Your credit progress is being kept.'
                   : result.progress.passedQuizIds.contains(widget.quiz.id)
                   ? widget.language.isKhmer
                         ? 'មិនជាប់លើកនេះទេ ប៉ុន្តែលទ្ធផលជាប់ពីមុននៅដដែល។'
@@ -485,6 +485,11 @@ class _QuizAttemptScreenState extends State<QuizAttemptScreen> {
             ],
             const SizedBox(height: 8),
             Text('Total credits: ${result.progress.credits}'),
+            Text(
+              widget.language.isKhmer
+                  ? 'ពិន្ទុ Credit: ${result.progress.creditRemainder}/100'
+                  : 'Credit progress: ${result.progress.creditRemainder}/100',
+            ),
             const SizedBox(height: 24),
             if (!passed)
               ElevatedButton(onPressed: _retry, child: const Text('Try again'))

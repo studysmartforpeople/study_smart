@@ -181,6 +181,19 @@ void main() {
     expect(find.text('Select date of birth'), findsOneWidget);
     expect(find.text('Age'), findsNothing);
     expect(find.text('Student Code'), findsNothing);
+    expect(find.byTooltip('Show password'), findsOneWidget);
+    expect(find.byTooltip('Show confirm password'), findsOneWidget);
+
+    await tester.ensureVisible(find.byTooltip('Show password'));
+    await tester.pump();
+    await tester.tap(find.byTooltip('Show password'));
+    await tester.pump();
+    await tester.ensureVisible(find.byTooltip('Show confirm password'));
+    await tester.pump();
+    await tester.tap(find.byTooltip('Show confirm password'));
+    await tester.pump();
+    expect(find.byTooltip('Hide password'), findsOneWidget);
+    expect(find.byTooltip('Hide confirm password'), findsOneWidget);
 
     await tester.tap(find.text('Select date of birth'));
     await tester.pumpAndSettle();
@@ -339,6 +352,9 @@ void main() {
     expect(find.text('Progress: 1/40 quizzes passed'), findsOneWidget);
     expect(find.text('Best score: 80% · Passed'), findsOneWidget);
     expect(find.textContaining('English Alphabet: A, B, C'), findsOneWidget);
+    expect(find.text('Credits: 1'), findsOneWidget);
+    expect(find.text('Credit progress: 80/100'), findsOneWidget);
+    expect(find.byTooltip('Give one credit'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -491,6 +507,21 @@ void main() {
       expect(progress.lastQuizId, isNull);
     },
   );
+
+  test('Quiz scores accumulate across 100 percent to earn a credit', () {
+    final initial = LearningProgress.initial().withSelectedSubjects({
+      LearningSubjectIds.englishBasic,
+    });
+    final firstQuiz = LearningCurriculum.quizzes.first;
+    final first = initial.withQuizResult(quiz: firstQuiz, score: 50);
+    expect(first.progress.credits, 0);
+    expect(first.progress.creditRemainder, 50);
+
+    final second = first.progress.withQuizResult(quiz: firstQuiz, score: 50);
+    expect(second.progress.credits, 1);
+    expect(second.progress.creditRemainder, 0);
+    expect(second.earnedCredit, isTrue);
+  });
 
   test('Passing a quiz earns one credit and unlocks the next lesson once', () {
     final initial = LearningProgress.initial().withSelectedSubjects({

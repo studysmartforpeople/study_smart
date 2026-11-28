@@ -320,6 +320,8 @@ service cloud.firestore {
           'unlockedLessonIds',
           'selectedSubjectIds',
           'lastQuizId',
+          'creditPoints',
+          'bonusCredits',
           'credits',
           'updatedAt'
         ])
@@ -349,9 +351,12 @@ service cloud.firestore {
           || data.lastQuizId == null
           || quizIds().hasAny([data.lastQuizId]))
         && data.credits is int
-        && data.credits == data.passedQuizIds.size()
         && data.credits >= 0
-        && data.credits <= 40
+        && data.credits <= 4000
+        && (!data.keys().hasAny(['creditPoints'])
+          || (data.creditPoints is int && data.creditPoints >= 0))
+        && (!data.keys().hasAny(['bonusCredits'])
+          || (data.bonusCredits is int && data.bonusCredits >= 0))
         && data.updatedAt is timestamp;
     }
 
@@ -396,9 +401,29 @@ service cloud.firestore {
           && request.resource.data.passedQuizIds.hasAll(resource.data.passedQuizIds)
           && request.resource.data.unlockedLessonIds.hasAll(resource.data.unlockedLessonIds)
           && request.resource.data.credits >= resource.data.credits
+          && request.resource.data.get('bonusCredits', 0)
+            == resource.data.get('bonusCredits', 0)
+          && (!request.resource.data.keys().hasAny(['creditPoints'])
+            || (resource.data.get('creditPoints', resource.data.passedQuizIds.size() * 100)
+              <= request.resource.data.creditPoints
+              && request.resource.data.creditPoints
+                <= resource.data.get(
+                  'creditPoints',
+                  resource.data.passedQuizIds.size() * 100
+                ) + 100))
           && (!request.resource.data.diff(resource.data).affectedKeys()
               .hasAny(['bestScores', 'passedQuizIds'])
             || validScoreTransitionById(request.resource.data, resource.data));
+        allow update: if isAdmin()
+          && progressId == 'current'
+          && validLearningProgress(request.resource.data)
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['bonusCredits', 'credits', 'creditPoints', 'updatedAt'])
+          && request.resource.data.get('creditPoints', resource.data.passedQuizIds.size() * 100)
+            == resource.data.get('creditPoints', resource.data.passedQuizIds.size() * 100)
+          && request.resource.data.get('bonusCredits', 0) >= 0
+          && request.resource.data.credits >= 0
+          && request.resource.data.credits <= 4000;
         allow delete: if false;
       }
 

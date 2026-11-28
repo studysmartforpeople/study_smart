@@ -156,10 +156,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           final students = snapshot.data!;
           final totalQuizPasses = students.fold<int>(
             0,
-            (total, student) => total + student.progress.credits,
+            (total, student) => total + student.progress.quizPasses,
           );
           final activeLearners = students
-              .where((student) => student.progress.credits > 0)
+              .where((student) => student.progress.quizPasses > 0)
               .length;
           final totalPossibleCredits =
               students.length * LearningCurriculum.quizzes.length;
@@ -553,11 +553,11 @@ class _StudentListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final totalQuizzes = LearningCurriculum.quizzes.length;
-    final progressValue = (student.progress.credits / totalQuizzes).clamp(
+    final progressValue = (student.progress.quizPasses / totalQuizzes).clamp(
       0.0,
       1.0,
     );
-    final progressColor = student.progress.credits > 0
+    final progressColor = student.progress.quizPasses > 0
         ? colorScheme.tertiary
         : colorScheme.outline;
 
@@ -604,7 +604,7 @@ class _StudentListTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
-                  '${student.progress.credits}/$totalQuizzes',
+                  '${student.progress.quizPasses}/$totalQuizzes',
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
                     color: progressColor,
                     fontWeight: FontWeight.bold,
@@ -636,8 +636,10 @@ class _StudentProgressDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final student = this.student;
     final progress = student.progress;
     final totalQuizzes = LearningCurriculum.quizzes.length;
+    final totalCredits = progress.credits;
 
     return AlertDialog(
       title: Text(student.fullName),
@@ -652,11 +654,20 @@ class _StudentProgressDialog extends StatelessWidget {
               Text('Student code: ${student.studentCode}'),
               const SizedBox(height: 20),
               Text(
-                'Progress: ${progress.credits}/$totalQuizzes quizzes passed',
+                'Credits: $totalCredits',
+                style: Theme.of(context).textTheme.titleSmall
+                    ?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              Text('Credit progress: ${progress.creditRemainder}/100'),
+              const SizedBox(height: 16),
+              Text(
+                'Progress: ${progress.quizPasses}/$totalQuizzes quizzes passed',
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 8),
-              LinearProgressIndicator(value: progress.credits / totalQuizzes),
+              LinearProgressIndicator(
+                value: progress.quizPasses / totalQuizzes,
+              ),
               const SizedBox(height: 16),
               ...LearningCurriculum.quizzes.map((quiz) {
                 final score = progress.bestScores[quiz.id];

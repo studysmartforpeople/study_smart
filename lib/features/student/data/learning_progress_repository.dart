@@ -7,6 +7,8 @@ class LearningProgress {
   final Set<String> passedQuizIds;
   final Set<String> unlockedLessonIds;
   final Set<String> selectedSubjectIds;
+  final int creditPoints;
+  final int bonusCredits;
   final String? lastQuizId;
 
   const LearningProgress({
@@ -14,6 +16,8 @@ class LearningProgress {
     required this.passedQuizIds,
     required this.unlockedLessonIds,
     required this.selectedSubjectIds,
+    this.creditPoints = 0,
+    this.bonusCredits = 0,
     this.lastQuizId,
   });
 
@@ -34,6 +38,8 @@ class LearningProgress {
     final rawSelectedSubjectIds = data['selectedSubjectIds'];
     final rawLastQuizId = data['lastQuizId'];
     final rawCredits = data['credits'];
+    final rawBonusCredits = data['bonusCredits'] ?? 0;
+    final rawCreditPoints = data['creditPoints'];
 
     if (rawScores is! Map ||
         rawPassedIds is! List ||
@@ -41,7 +47,10 @@ class LearningProgress {
         (data.containsKey('selectedSubjectIds') &&
             rawSelectedSubjectIds is! List) ||
         (rawLastQuizId != null && rawLastQuizId is! String) ||
-        rawCredits is! int) {
+        rawCredits is! int ||
+        rawBonusCredits is! int ||
+        rawBonusCredits < 0 ||
+        (rawCreditPoints != null && rawCreditPoints is! int)) {
       throw const FormatException(
         'Learning progress data has an invalid shape.',
       );
@@ -64,6 +73,12 @@ class LearningProgress {
 
     final passedQuizIds = rawPassedIds.cast<String>().toSet();
     final unlockedLessonIds = rawUnlockedIds.cast<String>().toSet();
+    final creditPoints = rawCreditPoints is int
+        ? rawCreditPoints
+        : passedQuizIds.length * 100;
+    if (creditPoints < 0) {
+      throw const FormatException('Learning credit points are invalid.');
+    }
     final selectedSubjectIds = rawSelectedSubjectIds is List
         ? rawSelectedSubjectIds.cast<String>().toSet()
         : <String>{};
@@ -77,7 +92,10 @@ class LearningProgress {
         !LearningCurriculum.quizzes.any((quiz) => quiz.id == lastQuizId)) {
       throw const FormatException('Learning progress quiz ID is invalid.');
     }
-    if (rawCredits != passedQuizIds.length ||
+    final automaticCredits = (creditPoints ~/ 100) > passedQuizIds.length
+        ? creditPoints ~/ 100
+        : passedQuizIds.length;
+    if (rawCredits != automaticCredits + rawBonusCredits ||
         bestScores.values.any((score) => score < 0 || score > 100)) {
       throw const FormatException('Learning progress values are invalid.');
     }
@@ -87,11 +105,19 @@ class LearningProgress {
       passedQuizIds: passedQuizIds,
       unlockedLessonIds: unlockedLessonIds,
       selectedSubjectIds: selectedSubjectIds,
+      creditPoints: creditPoints,
+      bonusCredits: rawBonusCredits,
       lastQuizId: lastQuizId,
     );
   }
 
-  int get credits => passedQuizIds.length;
+  int get credits =>
+      ((creditPoints ~/ 100) > passedQuizIds.length
+          ? creditPoints ~/ 100
+          : passedQuizIds.length) +
+      bonusCredits;
+  int get quizPasses => passedQuizIds.length;
+  int get creditRemainder => creditPoints % 100;
 
   LearningProgress withSelectedSubjects(Set<String> subjectIds) {
     if (subjectIds.any((id) => !LearningCurriculum.containsSubject(id))) {
@@ -113,6 +139,27 @@ class LearningProgress {
       passedQuizIds: passedQuizIds,
       unlockedLessonIds: nextUnlockedLessonIds,
       selectedSubjectIds: Set<String>.from(subjectIds),
+      creditPoints: creditPoints,
+      bonusCredits: bonusCredits,
+      lastQuizId: lastQuizId,
+    );
+  }
+
+  LearningProgress withBonusCredits(int newBonusCredits) {
+    if (newBonusCredits < 0) {
+      throw ArgumentError.value(
+        newBonusCredits,
+        'newBonusCredits',
+        'Bonus credits cannot be negative.',
+      );
+    }
+    return LearningProgress(
+      bestScores: bestScores,
+      passedQuizIds: passedQuizIds,
+      unlockedLessonIds: unlockedLessonIds,
+      selectedSubjectIds: selectedSubjectIds,
+      creditPoints: creditPoints,
+      bonusCredits: newBonusCredits,
       lastQuizId: lastQuizId,
     );
   }
@@ -140,6 +187,11 @@ class LearningProgress {
 
     final nextPassedQuizIds = Set<String>.from(passedQuizIds);
     final nextUnlockedLessonIds = Set<String>.from(unlockedLessonIds);
+    final previousAutomaticCredits =
+        (creditPoints ~/ 100) > passedQuizIds.length
+        ? creditPoints ~/ 100
+        : passedQuizIds.length;
+    final nextCreditPoints = creditPoints + score;
     if (passed) {
       nextPassedQuizIds.add(quiz.id);
       if (quiz.nextLessonId case final nextLessonId?) {
@@ -150,6 +202,10 @@ class LearningProgress {
         nextUnlockedLessonIds.add(nextLessonId);
       }
     }
+    final nextPassedCount = nextPassedQuizIds.length;
+    final nextAutomaticCredits = (nextCreditPoints ~/ 100) > nextPassedCount
+        ? nextCreditPoints ~/ 100
+        : nextPassedCount;
 
     return QuizSubmissionResult(
       progress: LearningProgress(
@@ -157,9 +213,11 @@ class LearningProgress {
         passedQuizIds: nextPassedQuizIds,
         unlockedLessonIds: nextUnlockedLessonIds,
         selectedSubjectIds: selectedSubjectIds,
+        creditPoints: nextCreditPoints,
+        bonusCredits: bonusCredits,
         lastQuizId: quiz.id,
       ),
-      earnedCredit: !previouslyPassed && passed,
+      earnedCredit: nextAutomaticCredits > previousAutomaticCredits,
     );
   }
 
@@ -169,6 +227,8 @@ class LearningProgress {
     'unlockedLessonIds': unlockedLessonIds.toList(),
     'selectedSubjectIds': selectedSubjectIds.toList(),
     'lastQuizId': lastQuizId,
+    'creditPoints': creditPoints,
+    'bonusCredits': bonusCredits,
     'credits': credits,
     'updatedAt': FieldValue.serverTimestamp(),
   };

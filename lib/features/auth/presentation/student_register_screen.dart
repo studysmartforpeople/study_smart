@@ -30,6 +30,8 @@ class _StudentRegisterScreenState extends State<StudentRegisterScreen> {
   final _confirmPasswordController = TextEditingController();
   DateTime? _dateOfBirth;
   bool _isLoading = false;
+  bool _showPassword = false;
+  bool _showConfirmPassword = false;
 
   @override
   void dispose() {
@@ -230,10 +232,19 @@ class _StudentRegisterScreenState extends State<StudentRegisterScreen> {
             const SizedBox(height: 14),
             TextFormField(
               controller: _passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(
+              obscureText: !_showPassword,
+              decoration: InputDecoration(
                 labelText: 'Password',
-                prefixIcon: Icon(Icons.lock_outline_rounded),
+                prefixIcon: const Icon(Icons.lock_outline_rounded),
+                suffixIcon: IconButton(
+                  onPressed: () => setState(() {
+                    _showPassword = !_showPassword;
+                  }),
+                  tooltip: _showPassword ? 'Hide password' : 'Show password',
+                  icon: Icon(
+                    _showPassword ? Icons.visibility_off : Icons.visibility,
+                  ),
+                ),
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
@@ -248,10 +259,23 @@ class _StudentRegisterScreenState extends State<StudentRegisterScreen> {
             const SizedBox(height: 14),
             TextFormField(
               controller: _confirmPasswordController,
-              obscureText: true,
-              decoration: const InputDecoration(
+              obscureText: !_showConfirmPassword,
+              decoration: InputDecoration(
                 labelText: 'Confirm Password',
-                prefixIcon: Icon(Icons.lock_reset_rounded),
+                prefixIcon: const Icon(Icons.lock_reset_rounded),
+                suffixIcon: IconButton(
+                  onPressed: () => setState(() {
+                    _showConfirmPassword = !_showConfirmPassword;
+                  }),
+                  tooltip: _showConfirmPassword
+                      ? 'Hide confirm password'
+                      : 'Show confirm password',
+                  icon: Icon(
+                    _showConfirmPassword
+                        ? Icons.visibility_off
+                        : Icons.visibility,
+                  ),
+                ),
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
