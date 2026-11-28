@@ -189,40 +189,103 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       constraints.maxWidth < 600 ? 16 : 28,
                     ),
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Dashboard overview',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .headlineSmall
-                                      ?.copyWith(fontWeight: FontWeight.bold),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Monitor student activity and learning progress.',
-                                  style: Theme.of(context).textTheme.bodyMedium
-                                      ?.copyWith(
-                                        color: colorScheme.onSurfaceVariant,
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              colorScheme.primaryContainer,
+                              colorScheme.surfaceContainerLow,
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: colorScheme.outlineVariant.withValues(
+                              alpha: 0.6,
+                            ),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: colorScheme.surface.withValues(
+                                        alpha: 0.72,
                                       ),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.shield_rounded,
+                                          size: 15,
+                                          color: colorScheme.primary,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'ADMIN CONSOLE',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .labelSmall
+                                              ?.copyWith(
+                                                color: colorScheme.primary,
+                                                fontWeight: FontWeight.bold,
+                                                letterSpacing: 0.7,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'Dashboard overview',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .headlineSmall
+                                        ?.copyWith(fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Monitor student activity and learning progress.',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(
+                                          color: colorScheme.onSurfaceVariant,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Container(
+                              width: 52,
+                              height: 52,
+                              decoration: BoxDecoration(
+                                color: colorScheme.primary.withValues(
+                                  alpha: 0.12,
                                 ),
-                              ],
+                                borderRadius: BorderRadius.circular(17),
+                              ),
+                              child: Icon(
+                                Icons.admin_panel_settings_rounded,
+                                color: colorScheme.primary,
+                                size: 28,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          CircleAvatar(
-                            radius: 24,
-                            backgroundColor: colorScheme.primaryContainer,
-                            foregroundColor: colorScheme.onPrimaryContainer,
-                            child: const Icon(
-                              Icons.admin_panel_settings_rounded,
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 24),
                       GridView.count(
@@ -269,10 +332,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                   ?.copyWith(fontWeight: FontWeight.bold),
                             ),
                           ),
-                          Text(
-                            '${matchingStudents.length} of ${students.length}',
-                            style: Theme.of(context).textTheme.labelLarge
-                                ?.copyWith(color: colorScheme.onSurfaceVariant),
+                          DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: colorScheme.primaryContainer,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 7,
+                              ),
+                              child: Text(
+                                '${matchingStudents.length} of ${students.length}',
+                                style: Theme.of(context).textTheme.labelLarge
+                                    ?.copyWith(
+                                      color: colorScheme.onPrimaryContainer,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -290,9 +368,29 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                   icon: const Icon(Icons.clear_rounded),
                                 ),
                           filled: true,
+                          fillColor: colorScheme.surfaceContainerHighest
+                              .withValues(alpha: 0.55),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 16,
+                          ),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(16),
                             borderSide: BorderSide.none,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(
+                              color: colorScheme.outlineVariant.withValues(
+                                alpha: 0.5,
+                              ),
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(
+                              color: colorScheme.primary,
+                              width: 1.5,
+                            ),
                           ),
                         ),
                       ),
@@ -355,9 +453,12 @@ class _OverviewCard extends StatelessWidget {
 
     return Card(
       elevation: 0,
+      color: colorScheme.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: colorScheme.outlineVariant),
+        side: BorderSide(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.7),
+        ),
       ),
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -451,15 +552,28 @@ class _StudentListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final totalQuizzes = LearningCurriculum.quizzes.length;
+    final progressValue = (student.progress.credits / totalQuizzes).clamp(
+      0.0,
+      1.0,
+    );
+    final progressColor = student.progress.credits > 0
+        ? colorScheme.tertiary
+        : colorScheme.outline;
 
     return Card(
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 8),
+      color: colorScheme.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: colorScheme.outlineVariant),
+        side: BorderSide(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.7),
+        ),
       ),
       child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+        minVerticalPadding: 10,
         onTap: onTap,
         leading: CircleAvatar(
           backgroundColor: colorScheme.primaryContainer,
@@ -472,12 +586,42 @@ class _StudentListTile extends StatelessWidget {
             if (student.email.isNotEmpty) student.email,
             'Code: ${student.studentCode}',
           ].join('  ·  '),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodySmall
+              ?.copyWith(color: colorScheme.onSurfaceVariant),
         ),
-        trailing: Chip(
-          side: BorderSide(color: colorScheme.outlineVariant),
-          backgroundColor: colorScheme.surface,
-          label: Text(
-            '${student.progress.credits}/${LearningCurriculum.quizzes.length}',
+        trailing: SizedBox(
+          width: 70,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                decoration: BoxDecoration(
+                  color: progressColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '${student.progress.credits}/$totalQuizzes',
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: progressColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: progressValue.toDouble(),
+                  minHeight: 5,
+                  color: progressColor,
+                  backgroundColor: progressColor.withValues(alpha: 0.14),
+                ),
+              ),
+            ],
           ),
         ),
       ),
