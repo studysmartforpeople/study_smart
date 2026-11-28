@@ -122,19 +122,36 @@ class _SubjectListPageState extends State<SubjectListPage> {
             const SizedBox(height: 20),
             LayoutBuilder(
               builder: (context, constraints) {
-                final columns = constraints.maxWidth >= 620 ? 2 : 1;
+                final subjects = LearningCurriculum.subjects;
+                if (constraints.maxWidth < 680) {
+                  return Column(
+                    children: [
+                      for (final subject in subjects)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _SubjectCard(
+                            subject: subject,
+                            progress: progress,
+                            isSaving: _savingSubjectId == subject.id,
+                            onTap: () => _toggleSubject(progress, subject),
+                          ),
+                        ),
+                    ],
+                  );
+                }
+
                 return GridView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  itemCount: LearningCurriculum.subjects.length,
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: columns,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    childAspectRatio: columns == 1 ? 1.32 : 1.12,
+                  itemCount: subjects.length,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    childAspectRatio: 1.2,
                   ),
                   itemBuilder: (context, index) {
-                    final subject = LearningCurriculum.subjects[index];
+                    final subject = subjects[index];
                     return _SubjectCard(
                       subject: subject,
                       progress: progress,
@@ -183,12 +200,12 @@ class _SubjectCard extends StatelessWidget {
 
     return Card(
       margin: EdgeInsets.zero,
-      color: scheme.surfaceContainerLow,
+      color: isSelected ? color.withValues(alpha: 0.045) : scheme.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(22),
         side: BorderSide(
           color: isSelected ? color : scheme.outlineVariant,
-          width: isSelected ? 1.5 : 0.7,
+          width: isSelected ? 1.5 : 1,
         ),
       ),
       clipBehavior: Clip.antiAlias,
@@ -230,7 +247,7 @@ class _SubjectCard extends StatelessWidget {
                     ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               Text(
                 subject.description,
                 maxLines: 2,
@@ -239,7 +256,7 @@ class _SubjectCard extends StatelessWidget {
                   color: scheme.onSurfaceVariant,
                 ),
               ),
-              const Spacer(),
+              const SizedBox(height: 14),
               Row(
                 children: [
                   Icon(
@@ -264,7 +281,7 @@ class _SubjectCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 7),
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
                 child: LinearProgressIndicator(
@@ -274,7 +291,7 @@ class _SubjectCard extends StatelessWidget {
                   backgroundColor: color.withValues(alpha: 0.12),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton.icon(
@@ -290,6 +307,10 @@ class _SubjectCard extends StatelessWidget {
                               : Icons.add_rounded,
                         ),
                   label: Text(isSelected ? 'Remove subject' : 'Start learning'),
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                  ),
                 ),
               ),
             ],

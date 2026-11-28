@@ -692,6 +692,7 @@ void main() {
     expect(find.text('Choose your subjects'), findsOneWidget);
     expect(find.text('English Basic'), findsOneWidget);
     expect(find.text('Programming Basic'), findsOneWidget);
+    expect(tester.getSize(find.byType(Card).first).height, lessThan(300));
     expect(tester.takeException(), isNull);
   });
 

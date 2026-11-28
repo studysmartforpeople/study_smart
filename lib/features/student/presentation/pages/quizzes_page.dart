@@ -54,22 +54,98 @@ class QuizzesPage extends StatelessWidget {
         final quizzes = LearningCurriculum.quizzes.where((quiz) {
           final lesson = LearningCurriculum.lessonById(quiz.lessonId);
           return progress.selectedSubjectIds.contains(lesson.subjectId);
-        });
+        }).toList();
+        final totalQuizzes = LearningCurriculum.quizzes.length;
 
         return ListView(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
           children: [
+            Text(
+              'Your quizzes',
+              style: Theme.of(context).textTheme.headlineSmall
+                  ?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Check your knowledge and earn credits as you learn.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 18),
             Card(
-              child: ListTile(
-                leading: const Icon(Icons.stars_rounded),
-                title: Text('Credits: ${progress.credits}'),
-                subtitle: Text(
-                  'Pass a lesson quiz with ${LearningCurriculum.passScore}% '
-                  'to earn 1 credit and unlock the next lesson in that subject.',
+              color: Theme.of(context).colorScheme.primaryContainer,
+              child: Padding(
+                padding: const EdgeInsets.all(18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.surface
+                                .withValues(alpha: 0.72),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Icon(
+                            Icons.workspace_premium_rounded,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${progress.credits} credits earned',
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.bold),
+                              ),
+                              Text(
+                                '$totalQuizzes quizzes in your learning library',
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: LinearProgressIndicator(
+                        value: (progress.credits / totalQuizzes)
+                            .clamp(0.0, 1.0)
+                            .toDouble(),
+                        minHeight: 7,
+                        backgroundColor: Theme.of(context)
+                            .colorScheme
+                            .onPrimaryContainer
+                            .withValues(alpha: 0.12),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Pass a quiz with ${LearningCurriculum.passScore}% to '
+                      'earn a credit and unlock the next lesson.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             for (final quiz in quizzes)
               _QuizCard(
                 quiz: quiz,
@@ -126,13 +202,53 @@ class _QuizCard extends StatelessWidget {
         : '${lesson.subjectFor(language)} · ${lesson.titleFor(language)} · '
               '${language.isKhmer ? 'ពិន្ទុល្អបំផុត' : 'Best score'}: $bestScore%';
 
+    final scheme = Theme.of(context).colorScheme;
+    final statusColor = !lessonUnlocked
+        ? scheme.onSurfaceVariant
+        : passed
+        ? Colors.green.shade700
+        : scheme.primary;
+
     return Card(
-      margin: const EdgeInsets.only(top: 8),
+      margin: const EdgeInsets.only(bottom: 10),
+      color: scheme.surface,
       child: ListTile(
-        leading: const Icon(Icons.quiz_rounded, color: Colors.deepPurple),
-        title: Text(localizedQuiz.title),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: statusColor.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(
+            passed
+                ? Icons.check_rounded
+                : lessonUnlocked
+                ? Icons.quiz_rounded
+                : Icons.lock_outline_rounded,
+            color: statusColor,
+          ),
+        ),
+        title: Text(
+          localizedQuiz.title,
+          style: Theme.of(context).textTheme.titleSmall
+              ?.copyWith(fontWeight: FontWeight.w700),
+        ),
         subtitle: Text(subtitle),
-        trailing: Chip(label: Text(status)),
+        trailing: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+          decoration: BoxDecoration(
+            color: statusColor.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: statusColor.withValues(alpha: 0.25)),
+          ),
+          child: Text(
+            status,
+            style: Theme.of(context).textTheme.labelMedium
+                ?.copyWith(color: statusColor, fontWeight: FontWeight.w600),
+          ),
+        ),
         onTap: lessonUnlocked
             ? () => Navigator.of(context).push(
                 MaterialPageRoute<void>(

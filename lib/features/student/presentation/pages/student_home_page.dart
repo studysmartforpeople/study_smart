@@ -383,8 +383,12 @@ class _HomeMetricCard extends StatelessWidget {
 
     return Card(
       margin: EdgeInsets.zero,
-      color: scheme.surfaceContainerLow,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      color: scheme.surface,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.7)),
+      ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         child: Row(
